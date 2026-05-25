@@ -1,0 +1,1996 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { FiCheck, FiPlus, FiTrash2, FiClock, FiX, FiArchive, FiInfo } from 'react-icons/fi';
+import InfoDrawer from './InfoDrawer';
+
+interface FinanceData {
+  total_balance: number;
+  weekly_burn_rate: number;
+  bank_balance?: number;
+  cash_balance?: number;
+}
+
+interface IncomeItem {
+  id: string;
+  description: string;
+  amount: number;
+  status: 'pending' | 'collected';
+  due_date: string;
+}
+
+interface RecurringIncomeItem {
+  id: string;
+  description: string;
+  amount: number;
+  frequency: 'weekly' | 'monthly';
+}
+
+interface ExpenseItem {
+  id: string;
+  description: string;
+  amount: number;
+  frequency: 'weekly' | 'monthly';
+}
+
+interface DebtItem {
+  id: string;
+  description: string;
+  total_amount: number;
+  due_date: string;
+}
+
+interface MonthlyClose {
+  id: string;
+  month_year: string;
+  total_incomes: number;
+  total_expenses: number;
+  net_savings: number;
+  closed_at: string;
+  joy_project?: string | null;
+  focus_leak?: string | null;
+  habit_to_polish?: string | null;
+}
+
+export default function SurvivalWidget() {
+  const [finances, setFinances] = useState<FinanceData>({ total_balance: 0, weekly_burn_rate: 0 });
+  const [_survivalDays, setSurvivalDays] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  // Lists
+  const [incomes, setIncomes] = useState<IncomeItem[]>([]);
+  const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncomeItem[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [debts, setDebts] = useState<DebtItem[]>([]);
+  const [monthlyCloses, setMonthlyCloses] = useState<MonthlyClose[]>([]);
+
+  // Projection Scenarios and Safety Haircuts
+  const [scenario, setScenario] = useState<'actual' | 'meta'>('actual');
+  const [safetyHaircut, setSafetyHaircut] = useState<number>(0.6); // 60% risk confidence default (40% haircut)
+  const [homeTargetMonthly, setHomeTargetMonthly] = useState<number>(800); // Dynamic target home contribution
+
+  // Step-by-step retrospectiva states
+  const [joyProject, setJoyProject] = useState('');
+  const [focusLeak, setFocusLeak] = useState('');
+  const [habitToPolish, setHabitToPolish] = useState('');
+  const [closeStep, setCloseStep] = useState<1 | 2 | 3 | 4>(1);
+  const [expandedCloseId, setExpandedCloseId] = useState<string | null>(null);
+
+  // Form toggles & inputs
+  const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [incDesc, setIncDesc] = useState('');
+  const [incAmount, setIncAmount] = useState('');
+  const [incDueDate, setIncDueDate] = useState('');
+
+  const [showRecForm, setShowRecForm] = useState(false);
+  const [recDesc, setRecDesc] = useState('');
+  const [recAmount, setRecAmount] = useState('');
+  const [recFreq, setRecFreq] = useState<'weekly' | 'monthly'>('weekly');
+
+  // Variable payout state
+  const [injectingIncomeId, setInjectingIncomeId] = useState<string | null>(null);
+  const [actualPayout, setActualPayout] = useState('');
+
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expFreq, setExpFreq] = useState<'weekly' | 'monthly'>('weekly');
+
+  const [showDebtForm, setShowDebtForm] = useState(false);
+  const [debtDesc, setDebtDesc] = useState('');
+  const [debtAmount, setDebtAmount] = useState('');
+  const [debtDueDate, setDebtDueDate] = useState('');
+
+  // Closing flow states
+  const [showCloseModal, setShowCloseModal] = useState(false);
+
+  // Info Drawer states
+  const [infoDrawer, setInfoDrawer] = useState<string | null>(null);
+  const openInfo = (key: string) => setInfoDrawer(key);
+  const closeInfo = () => setInfoDrawer(null);
+
+  const fetchData = async () => {
+    try {
+      // 1. Fetch finances
+      const { data: finData } = await supabase.from('finances').select('*').eq('id', 1).single();
+      if (finData) {
+        setFinances({
+          total_balance: parseFloat(finData.total_balance as any) || 0,
+          weekly_burn_rate: parseFloat(finData.weekly_burn_rate as any) || 0,
+          bank_balance: parseFloat(finData.bank_balance as any) || 0,
+          cash_balance: parseFloat(finData.cash_balance as any) || 0
+        });
+      } else {
+        await supabase.from('finances').insert({ id: 1, total_balance: 1000, weekly_burn_rate: 150, bank_balance: 1000, cash_balance: 0 });
+      }
+
+      // 2. Fetch one-time incomes
+      const { data: incomesData } = await supabase.from('income_pipeline').select('*').order('due_date');
+      if (incomesData) setIncomes(incomesData);
+
+      // 3. Fetch recurring incomes
+      const { data: recData } = await supabase.from('recurring_incomes').select('*').order('amount', { ascending: false });
+      if (recData) setRecurringIncomes(recData);
+
+      // 4. Fetch expenses
+      const { data: expensesData } = await supabase.from('expenses').select('*').order('amount', { ascending: false });
+      if (expensesData) setExpenses(expensesData);
+
+      // 5. Fetch debts
+      const { data: debtsData } = await supabase.from('debts').select('*').order('due_date');
+      if (debtsData) setDebts(debtsData);
+
+      // 6. Fetch monthly closes history
+      const { data: closesData } = await supabase.from('monthly_closes').select('*').order('closed_at', { ascending: false });
+      if (closesData) setMonthlyCloses(closesData);
+
+      // 7. Fetch calculated survival days via RPC
+      const { data: daysData } = await supabase.rpc('calculate_survival_days');
+      if (daysData !== null) setSurvivalDays(daysData);
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleUpdateSubBalance = async (field: 'bank_balance' | 'cash_balance', val: string) => {
+    const num = parseFloat(val) || 0;
+    const updatedFinances = { ...finances, [field]: num };
+    const newTotal = (updatedFinances.bank_balance || 0) + (updatedFinances.cash_balance || 0);
+    updatedFinances.total_balance = newTotal;
+    
+    setFinances(updatedFinances);
+    
+    await supabase.from('finances').update({ 
+      [field]: num,
+      total_balance: newTotal
+    }).eq('id', 1);
+    
+    const { data: daysData } = await supabase.rpc('calculate_survival_days');
+    if (daysData !== null) setSurvivalDays(daysData);
+  };
+
+  // Add Income
+  const handleAddIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!incDesc.trim() || !incAmount) return;
+    try {
+      const { error } = await supabase.from('income_pipeline').insert({
+        description: incDesc,
+        amount: parseFloat(incAmount),
+        due_date: incDueDate || null,
+        status: 'pending'
+      });
+      if (error) throw error;
+      setIncDesc('');
+      setIncAmount('');
+      setIncDueDate('');
+      setShowIncomeForm(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Mark income as collected
+  const handleCollectIncome = async (item: IncomeItem) => {
+    try {
+      const { error: incErr } = await supabase
+        .from('income_pipeline')
+        .update({ status: 'collected' })
+        .eq('id', item.id);
+      if (incErr) throw incErr;
+
+      const newBalance = finances.total_balance + item.amount;
+      const newBankBalance = (finances.bank_balance || 0) + item.amount;
+      
+      setFinances(prev => ({ 
+        ...prev, 
+        total_balance: newBalance,
+        bank_balance: newBankBalance
+      }));
+      
+      const { error: finErr } = await supabase
+        .from('finances')
+        .update({ 
+          total_balance: newBalance,
+          bank_balance: newBankBalance
+        })
+        .eq('id', 1);
+      if (finErr) throw finErr;
+
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteIncome = async (id: string) => {
+    if (!confirm('¿Eliminar este ingreso?')) return;
+    await supabase.from('income_pipeline').delete().eq('id', id);
+    fetchData();
+  };
+
+  // Add Recurring Income
+  const handleAddRecurringIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recDesc.trim() || !recAmount) return;
+    try {
+      const { error } = await supabase.from('recurring_incomes').insert({
+        description: recDesc,
+        amount: parseFloat(recAmount),
+        frequency: recFreq
+      });
+      if (error) throw error;
+      setRecDesc('');
+      setRecAmount('');
+      setShowRecForm(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteRecurringIncome = async (id: string) => {
+    if (!confirm('¿Eliminar este ingreso recurrente?')) return;
+    await supabase.from('recurring_incomes').delete().eq('id', id);
+    fetchData();
+  };
+
+  // Inject Variable Real Payout
+  const handleInjectPayout = async (_item: RecurringIncomeItem) => {
+    const amount = parseFloat(actualPayout) || 0;
+    if (amount <= 0) return;
+    
+    try {
+      const newBankBalance = (finances.bank_balance || 0) + amount;
+      const newTotal = newBankBalance + (finances.cash_balance || 0);
+      
+      setFinances(prev => ({
+        ...prev,
+        bank_balance: newBankBalance,
+        total_balance: newTotal
+      }));
+      
+      await supabase.from('finances').update({
+        bank_balance: newBankBalance,
+        total_balance: newTotal
+      }).eq('id', 1);
+      
+      setActualPayout('');
+      setInjectingIncomeId(null);
+      fetchData();
+      alert(`¡S/. ${amount} cobrados e inyectados con éxito a tu BCP / Yape!`);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Add Expense
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expDesc.trim() || !expAmount) return;
+    try {
+      const { error } = await supabase.from('expenses').insert({
+        description: expDesc,
+        amount: parseFloat(expAmount),
+        frequency: expFreq
+      });
+      if (error) throw error;
+      setExpDesc('');
+      setExpAmount('');
+      setShowExpenseForm(false);
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al registrar el gasto');
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    if (!confirm('¿Eliminar este gasto?')) return;
+    await supabase.from('expenses').delete().eq('id', id);
+    fetchData();
+  };
+
+  // Add Debt
+  const handleAddDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!debtDesc.trim() || !debtAmount || !debtDueDate) return;
+    try {
+      const { error } = await supabase.from('debts').insert({
+        description: debtDesc,
+        total_amount: parseFloat(debtAmount),
+        due_date: debtDueDate
+      });
+      if (error) throw error;
+      setDebtDesc('');
+      setDebtAmount('');
+      setDebtDueDate('');
+      setShowDebtForm(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteDebt = async (id: string) => {
+    if (!confirm('¿Eliminar esta deuda?')) return;
+    await supabase.from('debts').delete().eq('id', id);
+    fetchData();
+  };
+
+  // Perform Monthly Close
+  const handlePerformClose = async () => {
+    try {
+      const { error } = await supabase.rpc('perform_monthly_close', {
+        p_joy_project: joyProject.trim() || null,
+        p_focus_leak: focusLeak.trim() || null,
+        p_habit_to_polish: habitToPolish.trim() || null
+      });
+      if (error) throw error;
+
+      alert(`🔒 ¡Cierre contable completado con éxito! Se archivó tu balance e historial introspectivo.`);
+      setShowCloseModal(false);
+      
+      // Reset step states
+      setJoyProject('');
+      setFocusLeak('');
+      setHabitToPolish('');
+      setCloseStep(1);
+      
+      fetchData();
+    } catch (e) {
+      console.error(e);
+      alert('Error al realizar el cierre mensual');
+    }
+  };
+
+  const getDaysLeft = (dueDateStr: string) => {
+    const diff = new Date(dueDateStr).getTime() - new Date().getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  // Calculate Unified Rates (Base)
+  const weeklyExpensesSum = expenses.filter(e => e.frequency === 'weekly').reduce((acc, e) => acc + e.amount, 0);
+  const monthlyExpensesSum = expenses.filter(e => e.frequency === 'monthly').reduce((acc, e) => acc + e.amount, 0);
+  const unifiedBurnRate = weeklyExpensesSum + (monthlyExpensesSum / 4.33);
+
+  const weeklyIncomesSum = recurringIncomes.filter(r => r.frequency === 'weekly').reduce((acc, r) => acc + r.amount, 0);
+  const monthlyIncomesSum = recurringIncomes.filter(r => r.frequency === 'monthly').reduce((acc, r) => acc + r.amount, 0);
+  const unifiedIncomeRate = weeklyIncomesSum + (monthlyIncomesSum / 4.33);
+
+  // Dynamic calculations based on active scenario & safety haircut
+  const homeTargetWeekly = homeTargetMonthly / 4.33;
+  
+  const activeBurnRate = scenario === 'meta' ? (unifiedBurnRate + homeTargetWeekly) : unifiedBurnRate;
+  const activeIncomeRate = unifiedIncomeRate * safetyHaircut;
+  const activeNetBurnRate = activeBurnRate - activeIncomeRate;
+  
+  const activeSurvivalDays = activeNetBurnRate <= 0
+    ? Infinity
+    : Math.max(0, Math.floor(finances.total_balance / (activeNetBurnRate / 7)));
+
+  // Statistics for active closing month
+  const collectedIncomesSum = incomes.filter(i => i.status === 'collected').reduce((acc, i) => acc + i.amount, 0);
+  const estimatedExpensesMonth = unifiedBurnRate * 4.33;
+  const netEarningsMonth = collectedIncomesSum - estimatedExpensesMonth;
+
+
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Cargando finanzas clínicas...</div>;
+
+  return (
+    <>
+    <div style={{ padding: '0 0 40px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      
+      {/* 1. Core Runway Display */}
+      <div style={{
+        background: activeNetBurnRate <= 0 
+          ? 'linear-gradient(135deg, rgba(39, 174, 96, 0.08) 0%, rgba(241, 236, 228, 0.25) 100%)' 
+          : activeSurvivalDays <= 15 
+            ? 'linear-gradient(180deg, rgba(204, 101, 67, 0.08) 0%, rgba(241, 236, 228, 0.3) 100%)'
+            : 'linear-gradient(180deg, var(--bg-app) 0%, rgba(241, 236, 228, 0.4) 100%)',
+        padding: '32px 20px 40px',
+        borderBottom: '1px solid var(--border-color)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'all 0.3s ease'
+      }}>
+
+        {activeNetBurnRate <= 0 && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #27AE60 0%, #2ECC71 100%)'
+          }} />
+        )}
+        {activeSurvivalDays <= 15 && activeNetBurnRate > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, var(--accent-color) 0%, var(--accent-light) 100%)'
+          }} />
+        )}
+
+        {/* Dynamic Scenario Switcher Tabs */}
+        <div style={{
+          display: 'flex',
+          backgroundColor: 'rgba(25, 25, 25, 0.05)',
+          padding: '3px',
+          borderRadius: '24px',
+          marginBottom: '24px',
+          width: '90%',
+          maxWidth: '360px',
+          fontFamily: 'var(--font-sans)',
+          fontSize: '11px',
+          fontWeight: 600,
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <button
+            onClick={() => setScenario('actual')}
+            style={{
+              flex: 1,
+              border: 'none',
+              borderRadius: '20px',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '11px',
+              transition: 'all 0.2s ease',
+              backgroundColor: scenario === 'actual' ? 'var(--bg-app)' : 'transparent',
+              color: scenario === 'actual' ? 'var(--text-main)' : 'var(--text-muted)',
+              boxShadow: scenario === 'actual' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none'
+            }}
+          >
+            Mis Gastos de Hoy
+          </button>
+          <button
+            onClick={() => setScenario('meta')}
+            style={{
+              flex: 1,
+              border: 'none',
+              borderRadius: '20px',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '11px',
+              transition: 'all 0.2s ease',
+              backgroundColor: scenario === 'meta' ? 'var(--bg-app)' : 'transparent',
+              color: scenario === 'meta' ? 'var(--text-main)' : 'var(--text-muted)',
+              boxShadow: scenario === 'meta' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>Mi Meta de Apoyo 🎯</span>
+          </button>
+        </div>
+
+        {scenario === 'meta' && (
+          <div style={{
+            fontSize: '11.5px',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '-12px',
+            marginBottom: '20px',
+            backgroundColor: 'rgba(25, 25, 25, 0.03)',
+            padding: '6px 16px',
+            borderRadius: '20px',
+            border: '1px solid var(--border-color)',
+            animation: 'fadeIn 0.25s ease forwards'
+          }}>
+            <span>Aporte mensual a casa:</span>
+            <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px dashed var(--text-muted)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginRight: '2px' }}>S/.</span>
+              <input 
+                type="number" 
+                value={homeTargetMonthly === 0 ? '' : homeTargetMonthly} 
+                onChange={(e) => setHomeTargetMonthly(Math.max(0, parseFloat(e.target.value) || 0))}
+                style={{
+                  width: '55px',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 'bold',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  textAlign: 'center',
+                  padding: 0
+                }}
+                placeholder="0"
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '2px' }}>/mes</span>
+            </div>
+          </div>
+        )}
+
+
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+          <h2 style={{ 
+            fontSize: '10px', 
+            color: 'var(--text-muted)', 
+            margin: 0, 
+            fontFamily: 'var(--font-sans)', 
+            textTransform: 'uppercase', 
+            letterSpacing: '2.5px', 
+            fontWeight: 700 
+          }}>
+            Días de Tranquilidad
+          </h2>
+          <button
+            onClick={() => openInfo('survivalDays')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0, opacity: 0.7 }}
+          >
+            <FiInfo size={13} />
+          </button>
+        </div>
+
+        {activeNetBurnRate <= 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', animation: 'fadeIn 0.5s ease' }}>
+            {/* Elegant glowing infinity badge */}
+            <div style={{
+              position: 'relative',
+              width: '120px',
+              height: '120px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(39, 174, 96, 0.12) 0%, rgba(39, 174, 96, 0.03) 100%)',
+              border: '1.5px dashed rgba(39, 174, 96, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(39, 174, 96, 0.05)',
+              margin: '8px 0'
+            }}>
+              <div style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '72px',
+                lineHeight: '1',
+                color: '#27AE60',
+                fontWeight: 'normal',
+                transform: 'translateY(-2px)'
+              }}>
+                ∞
+              </div>
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                fontSize: '10px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                color: '#27AE60',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                días
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+              <span style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '22px',
+                color: '#27AE60',
+                fontWeight: 500
+              }}>
+                {scenario === 'meta' ? '¡Meta Lograda! ✦' : '¡Gastos Cubiertos! ✦'}
+              </span>
+              <span style={{
+                fontSize: '11px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                color: '#27AE60',
+                backgroundColor: 'rgba(39, 174, 96, 0.12)',
+                padding: '3px 14px',
+                borderRadius: '20px',
+              }}>
+                +S/. {Math.abs(activeNetBurnRate).toFixed(0)} extra / semana
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+            {/* Elegant countdown circular container */}
+            <div style={{
+              position: 'relative',
+              width: '120px',
+              height: '120px',
+              borderRadius: '50%',
+              background: activeSurvivalDays <= 15 
+                ? 'linear-gradient(135deg, rgba(204, 101, 67, 0.1) 0%, rgba(204, 101, 67, 0.02) 100%)'
+                : 'linear-gradient(135deg, rgba(25, 25, 25, 0.04) 0%, rgba(25, 25, 25, 0.01) 100%)',
+              border: activeSurvivalDays <= 15 
+                ? '1.5px dashed rgba(204, 101, 67, 0.4)'
+                : '1.5px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+              margin: '8px 0'
+            }}>
+              <div style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '44px',
+                lineHeight: '1.1',
+                color: activeSurvivalDays <= 15 ? 'var(--accent-color)' : 'var(--text-main)',
+                fontWeight: 'bold'
+              }}>
+                {activeSurvivalDays}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                días
+              </div>
+            </div>
+
+            <span style={{
+              fontSize: '12.5px',
+              color: activeNetBurnRate > 0 ? 'var(--accent-color)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+              backgroundColor: activeNetBurnRate > 0 ? 'rgba(204, 101, 67, 0.07)' : 'rgba(25, 25, 25, 0.04)',
+              padding: '4px 14px',
+              borderRadius: '20px',
+              marginTop: '4px'
+            }}>
+              {activeNetBurnRate > 0
+                ? `Faltan S/. ${activeNetBurnRate.toFixed(0)}/sem`
+                : `Sobran S/. ${Math.abs(activeNetBurnRate).toFixed(0)}/sem`}
+            </span>
+          </div>
+        )}
+
+        {/* Safety Haircut Filters (Stress-testing options) */}
+        <div style={{
+          marginTop: '28px',
+          width: '90%',
+          maxWidth: '360px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            ¿Qué tan seguros son mis ingresos de internet?
+          </span>
+          <div style={{
+            display: 'flex',
+            width: '100%',
+            backgroundColor: 'rgba(25, 25, 25, 0.03)',
+            border: '1px solid var(--border-color)',
+            padding: '2px',
+            borderRadius: '16px',
+            fontSize: '9.5px',
+            fontFamily: 'var(--font-sans)'
+          }}>
+            <button
+              onClick={() => setSafetyHaircut(1.0)}
+              style={{
+                flex: 1, border: 'none', borderRadius: '12px', padding: '4px 6px', cursor: 'pointer',
+                fontWeight: 600, fontSize: '9px', transition: 'all 0.2s ease',
+                backgroundColor: safetyHaircut === 1.0 ? 'var(--text-main)' : 'transparent',
+                color: safetyHaircut === 1.0 ? 'var(--bg-app)' : 'var(--text-muted)'
+              }}
+            >
+              Optimista (100%)
+            </button>
+            <button
+              onClick={() => setSafetyHaircut(0.6)}
+              style={{
+                flex: 1.2, border: 'none', borderRadius: '12px', padding: '4px 6px', cursor: 'pointer',
+                fontWeight: 600, fontSize: '9px', transition: 'all 0.2s ease',
+                backgroundColor: safetyHaircut === 0.6 ? 'var(--text-main)' : 'transparent',
+                color: safetyHaircut === 0.6 ? 'var(--bg-app)' : 'var(--text-muted)'
+              }}
+            >
+              Seguro (Recomendado)
+            </button>
+            <button
+              onClick={() => setSafetyHaircut(0.0)}
+              style={{
+                flex: 1, border: 'none', borderRadius: '12px', padding: '4px 6px', cursor: 'pointer',
+                fontWeight: 600, fontSize: '9px', transition: 'all 0.2s ease',
+                backgroundColor: safetyHaircut === 0.0 ? 'var(--text-main)' : 'transparent',
+                color: safetyHaircut === 0.0 ? 'var(--bg-app)' : 'var(--text-muted)'
+              }}
+            >
+              Emergencia (0% 🚨)
+            </button>
+          </div>
+          <button
+            onClick={() => openInfo('safety')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontFamily: 'var(--font-sans)', opacity: 0.8, padding: '2px 0' }}
+          >
+            <FiInfo size={11} />
+            <span>¿Qué significa esto?</span>
+          </button>
+        </div>
+
+        {/* Unified net metrics display (Highly refined, tabular look) */}
+        <div style={{ 
+          marginTop: '24px',
+          padding: '14px 24px',
+          border: '1.5px solid var(--border-color)',
+          borderRadius: '24px',
+          backgroundColor: 'rgba(241, 236, 228, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '90%',
+          maxWidth: '360px',
+          fontSize: '12px',
+          fontFamily: 'var(--font-sans)',
+          color: 'var(--text-muted)',
+          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.01)'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+            <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mis Gastos Totales</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 600, fontFamily: 'var(--font-serif)', fontSize: '13px' }}>
+              S/. {activeBurnRate.toFixed(1)} <span style={{ fontSize: '10px', fontFamily: 'var(--font-sans)', fontWeight: 'normal', color: 'var(--text-muted)' }}>/sem</span>
+            </span>
+          </div>
+          <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+            <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mis Ingresos Totales</span>
+            <span style={{ color: '#27AE60', fontWeight: 600, fontFamily: 'var(--font-serif)', fontSize: '13px' }}>
+              S/. {activeIncomeRate.toFixed(1)} <span style={{ fontSize: '10px', fontFamily: 'var(--font-sans)', fontWeight: 'normal', color: 'var(--text-muted)' }}>/sem</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        
+        {/* 2. Current Liquidity Balance */}
+        <div style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+              Liquidez Disponible Global
+            </label>
+            <span style={{ fontSize: '28px', fontFamily: 'var(--font-serif)', color: 'var(--text-main)' }}>
+              S/. {finances.total_balance.toFixed(2)}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                BCP / Yape (Digital)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
+                <span style={{ color: 'var(--text-muted)', marginRight: '4px', fontSize: '13px' }}>S/.</span>
+                <input 
+                  type="number"
+                  value={finances.bank_balance !== undefined ? Number(finances.bank_balance) : ''}
+                  onChange={(e) => handleUpdateSubBalance('bank_balance', e.target.value)}
+                  placeholder="0.00"
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: '15px',
+                    color: 'var(--text-main)',
+                    fontFamily: 'var(--font-serif)',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Efectivo en Casa
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
+                <span style={{ color: 'var(--text-muted)', marginRight: '4px', fontSize: '13px' }}>S/.</span>
+                <input 
+                  type="number"
+                  value={finances.cash_balance !== undefined ? Number(finances.cash_balance) : ''}
+                  onChange={(e) => handleUpdateSubBalance('cash_balance', e.target.value)}
+                  placeholder="0.00"
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: '15px',
+                    color: 'var(--text-main)',
+                    fontFamily: 'var(--font-serif)',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2.5 Escudo de Volatilidad (Volatilidad & Gobernanza de Riesgo) */}
+        <div style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+                🛡️ Mi Escudo de Volatilidad
+              </label>
+              <button
+                onClick={() => openInfo('diversification')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0, opacity: 0.7 }}
+              >
+                <FiInfo size={12} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-serif)' }}>
+                Nivel de Diversificación:
+              </span>
+              <span style={{
+                fontSize: '10px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 'bold',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                backgroundColor: recurringIncomes.length === 1 
+                  ? 'rgba(204, 101, 67, 0.15)' 
+                  : recurringIncomes.length === 2 
+                    ? 'rgba(212, 172, 13, 0.15)' 
+                    : 'rgba(39, 174, 96, 0.15)',
+                color: recurringIncomes.length === 1 
+                  ? 'var(--accent-color)' 
+                  : recurringIncomes.length === 2 
+                    ? '#D4AC0D' 
+                    : '#27AE60'
+              }}>
+                {recurringIncomes.length === 0 
+                  ? 'Sin ingresos registrados' 
+                  : recurringIncomes.length === 1 
+                    ? 'Grado D (Riesgo Crítico - 1 fuente)' 
+                    : recurringIncomes.length === 2 
+                      ? 'Grado C (Seguro Inicial - 2 fuentes)' 
+                      : 'Grado B/A (Inmune - Diversificado 🎉)'}
+              </span>
+            </div>
+            {recurringIncomes.length <= 1 && (
+              <button
+                onClick={() => openInfo('diversification')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--accent-color)', fontSize: '11px', fontFamily: 'var(--font-sans)', fontWeight: 600, padding: '4px 0', marginTop: '6px' }}
+              >
+                <FiInfo size={12} />
+                <span>¿Por qué es importante diversificar?</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Respaldo Familiar:</span>
+                <button
+                  onClick={() => openInfo('buffer')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0, opacity: 0.7 }}
+                >
+                  <FiInfo size={12} />
+                </button>
+              </div>
+              <strong style={{ fontFamily: 'var(--font-serif)' }}>
+                {Math.min(6, (finances.total_balance / (homeTargetMonthly || 1))).toFixed(1)} / 6 <span style={{ fontSize: '9px', fontFamily: 'var(--font-sans)', fontWeight: 'normal', color: 'var(--text-muted)' }}>meses</span>
+              </strong>
+            </div>
+
+            {/* Premium sleek progress bar */}
+            <div style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: 'rgba(25, 25, 25, 0.05)',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              position: 'relative',
+              marginTop: '4px'
+            }}>
+              <div style={{
+                width: `${Math.min(100, (finances.total_balance / ((homeTargetMonthly || 1) * 6)) * 100)}%`,
+                height: '100%',
+                background: finances.total_balance >= homeTargetMonthly * 6 
+                  ? 'linear-gradient(90deg, #27AE60 0%, #2ECC71 100%)' 
+                  : finances.total_balance >= homeTargetMonthly * 3
+                    ? 'linear-gradient(90deg, #D4AC0D 0%, #F1C40F 100%)'
+                    : 'linear-gradient(90deg, var(--accent-color) 0%, var(--accent-light) 100%)',
+                borderRadius: '4px',
+                transition: 'width 0.5s ease'
+              }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              <span>Ahorro hoy: S/. {finances.total_balance.toFixed(0)}</span>
+              <span>Meta 6 meses: S/. {(homeTargetMonthly * 6).toFixed(0)}</span>
+            </div>
+
+            <p style={{ fontSize: '11px', color: finances.total_balance >= homeTargetMonthly * 6 ? '#27AE60' : 'var(--text-muted)', marginTop: '10px', fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
+              {finances.total_balance < homeTargetMonthly 
+                ? '🛡️ Paso 1: Junta tu primer mes de colchón.' 
+                : finances.total_balance < homeTargetMonthly * 3 
+                  ? '🛡️ Paso 2: 1-2 meses cubiertos. ¡Sigue!' 
+                  : finances.total_balance < homeTargetMonthly * 6 
+                    ? '🛡️ Paso 3: Muy cerca de los 6 meses. ¡Casi!' 
+                    : '🎉 ¡Escudo completo! 6 meses asegurados.'}
+            </p>
+          </div>
+        </div>
+
+        {/* 3. Recurring Incomes (Flujo de Proyectos con ingresos variables) */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)' }}>
+              Inbound · Flujo Proyectos (Ingresos Variables)
+            </h3>
+            <button
+              onClick={() => setShowRecForm(!showRecForm)}
+              style={{
+                background: 'none', border: '1px solid var(--border-color)', borderRadius: '20px',
+                padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-sans)',
+                color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <FiPlus size={12} />
+              <span>Nuevo Proyecto</span>
+            </button>
+          </div>
+
+          {showRecForm && (
+            <form onSubmit={handleAddRecurringIncome} style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                placeholder="Descripción (ej: Facebook Páginas)"
+                value={recDesc}
+                onChange={e => setRecDesc(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                required
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="number"
+                  placeholder="Monto Promedio S/."
+                  value={recAmount}
+                  onChange={e => setRecAmount(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                  required
+                />
+                <select
+                  value={recFreq}
+                  onChange={e => setRecFreq(e.target.value as 'weekly' | 'monthly')}
+                  style={{ flex: 1.2, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                >
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                style={{ backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none', borderRadius: '6px', padding: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Registrar Proyecto
+              </button>
+            </form>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {recurringIncomes.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{item.description}</h4>
+                    <span style={{
+                      fontSize: '9px',
+                      fontFamily: 'var(--font-sans)',
+                      fontWeight: 600,
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                      color: '#27AE60',
+                      textTransform: 'uppercase',
+                      display: 'inline-block',
+                      marginTop: '4px'
+                    }}>
+                      Promedio {item.frequency === 'weekly' ? 'Semanal' : 'Mensual'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500 }} title="Monto promedio estimado">
+                      S/. {item.amount}
+                    </span>
+                    <button
+                      onClick={() => setInjectingIncomeId(injectingIncomeId === item.id ? null : item.id)}
+                      style={{
+                        backgroundColor: 'transparent', color: 'var(--accent-color)', border: '1px solid var(--accent-color)',
+                        borderRadius: '20px', padding: '2px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 600
+                      }}
+                    >
+                      Cobrar
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRecurringIncome(item.id)}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', opacity: 0.5, display: 'flex' }}
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Variable actual payout injector */}
+                {injectingIncomeId === item.id && (
+                  <div style={{
+                    borderTop: '1px solid var(--border-color)',
+                    paddingTop: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    animation: 'fadeIn 0.2s ease forwards'
+                  }}>
+                    <input
+                      type="number"
+                      placeholder="Monto real cobrado S/."
+                      value={actualPayout}
+                      onChange={e => setActualPayout(e.target.value)}
+                      style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '12px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => handleInjectPayout(item)}
+                      style={{
+                        backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none',
+                        borderRadius: '6px', padding: '6px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 600
+                      }}
+                    >
+                      Inyectar
+                    </button>
+                    <button
+                      onClick={() => { setInjectingIncomeId(null); setActualPayout(''); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    >
+                      <FiX size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {recurringIncomes.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0', fontStyle: 'italic' }}>
+                No hay proyectos variables registrados.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 4. One-time Pending Incomes (Inbound Trabajo Extra) */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)' }}>
+              Inbound · Trabajo Extra / Pendientes
+            </h3>
+            <button
+              onClick={() => setShowIncomeForm(!showIncomeForm)}
+              style={{
+                background: 'none', border: '1px solid var(--border-color)', borderRadius: '20px',
+                padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-sans)',
+                color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <FiPlus size={12} />
+              <span>Trabajo Extra</span>
+            </button>
+          </div>
+
+          {showIncomeForm && (
+            <form onSubmit={handleAddIncome} style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                placeholder="Descripción (ej: Edición video)"
+                value={incDesc}
+                onChange={e => setIncDesc(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                required
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="number"
+                  placeholder="Monto S/."
+                  value={incAmount}
+                  onChange={e => setIncAmount(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                  required
+                />
+                <input
+                  type="date"
+                  value={incDueDate}
+                  onChange={e => setIncDueDate(e.target.value)}
+                  style={{ flex: 1.2, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                />
+              </div>
+              <button
+                type="submit"
+                style={{ backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none', borderRadius: '6px', padding: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Registrar Ingreso
+              </button>
+            </form>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {incomes.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  opacity: item.status === 'collected' ? 0.6 : 1
+                }}
+              >
+                <div>
+                  <h4 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{item.description}</h4>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <span>Vence: {item.due_date ? new Date(item.due_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
+                    <span>·</span>
+                    <span style={{ color: item.status === 'collected' ? 'green' : 'var(--accent-color)', textTransform: 'uppercase', fontWeight: 600 }}>{item.status}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500 }}>
+                    S/. {item.amount}
+                  </span>
+                  {item.status === 'pending' && (
+                    <button
+                      onClick={() => handleCollectIncome(item)}
+                      style={{
+                        backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none',
+                        borderRadius: '50%', width: '28px', height: '28px', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s'
+                      }}
+                      title="Marcar como cobrado"
+                    >
+                      <FiCheck size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteIncome(item.id)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', opacity: 0.5 }}
+                  >
+                    <FiTrash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {incomes.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0', fontStyle: 'italic' }}>
+                No hay ingresos planificados en cartera.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 5. Expenses (Gastos unificados) */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)' }}>
+              Outbound · Gastos Clínicos
+            </h3>
+            <button
+              onClick={() => setShowExpenseForm(!showExpenseForm)}
+              style={{
+                background: 'none', border: '1px solid var(--border-color)', borderRadius: '20px',
+                padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-sans)',
+                color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <FiPlus size={12} />
+              <span>Añadir Gasto</span>
+            </button>
+          </div>
+
+          {showExpenseForm && (
+            <form onSubmit={handleAddExpense} style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                placeholder="Descripción (ej: Comida gatos)"
+                value={expDesc}
+                onChange={e => setExpDesc(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                required
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="number"
+                  placeholder="Monto S/."
+                  value={expAmount}
+                  onChange={e => setExpAmount(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                  required
+                />
+                <select
+                  value={expFreq}
+                  onChange={e => setExpFreq(e.target.value as 'weekly' | 'monthly')}
+                  style={{ flex: 1.2, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                >
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                style={{ backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none', borderRadius: '6px', padding: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Registrar Gasto
+              </button>
+            </form>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {expenses.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <div>
+                  <h4 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{item.description}</h4>
+                  <span style={{
+                    fontSize: '9px',
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    backgroundColor: item.frequency === 'weekly' ? 'rgba(209, 119, 87, 0.1)' : 'rgba(107, 102, 97, 0.1)',
+                    color: item.frequency === 'weekly' ? 'var(--accent-color)' : 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    display: 'inline-block',
+                    marginTop: '4px'
+                  }}>
+                    {item.frequency === 'weekly' ? 'Semanal' : 'Mensual'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500 }}>
+                    S/. {item.amount}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteExpense(item.id)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', opacity: 0.5 }}
+                  >
+                    <FiTrash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {expenses.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0', fontStyle: 'italic' }}>
+                No hay gastos fijos registrados.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 6. Debts (Deudas a plazo) */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)' }}>
+              Obligaciones · Deudas Activas
+            </h3>
+            <button
+              onClick={() => setShowDebtForm(!showDebtForm)}
+              style={{
+                background: 'none', border: '1px solid var(--border-color)', borderRadius: '20px',
+                padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-sans)',
+                color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              <FiPlus size={12} />
+              <span>Registrar Deuda</span>
+            </button>
+          </div>
+
+          {showDebtForm && (
+            <form onSubmit={handleAddDebt} style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                placeholder="Descripción (ej: Préstamo primo)"
+                value={debtDesc}
+                onChange={e => setDebtDesc(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                required
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="number"
+                  placeholder="Deuda Total S/."
+                  value={debtAmount}
+                  onChange={e => setDebtAmount(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                  required
+                />
+                <input
+                  type="date"
+                  value={debtDueDate}
+                  onChange={e => setDebtDueDate(e.target.value)}
+                  style={{ flex: 1.2, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none' }}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                style={{ backgroundColor: 'var(--text-main)', color: 'var(--bg-app)', border: 'none', borderRadius: '6px', padding: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Registrar Obligación
+              </button>
+            </form>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {debts.map(item => {
+              const daysLeft = getDaysLeft(item.due_date);
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <h4 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{item.description}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '11px', color: daysLeft <= 10 ? 'var(--accent-color)' : 'var(--text-muted)' }}>
+                      <FiClock size={11} />
+                      <span>{daysLeft <= 0 ? '¡Vencida!' : `Faltan ${daysLeft} días`}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', fontWeight: 500, color: daysLeft <= 30 ? 'var(--accent-color)' : 'var(--text-main)' }}>
+                      S/. {item.total_amount}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteDebt(item.id)}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', opacity: 0.5 }}
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {debts.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0', fontStyle: 'italic' }}>
+                Libre de obligaciones financieras activas.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 7. Accounting Monthly Closes Archive */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-muted)' }}>
+              Historial · Cierres Contables
+            </h3>
+            <button
+              onClick={() => setShowCloseModal(true)}
+              style={{
+                backgroundColor: 'var(--text-main)', border: 'none', borderRadius: '20px',
+                padding: '6px 14px', fontSize: '11px', fontFamily: 'var(--font-sans)',
+                color: 'var(--bg-app)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                fontWeight: 600
+              }}
+            >
+              <FiArchive size={12} />
+              <span>Cierre de Mes</span>
+            </button>
+          </div>
+
+          {/* Close month preview modal/overlay with multi-step Retrospective */}
+          {showCloseModal && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}>
+              <div style={{
+                backgroundColor: 'var(--bg-app)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '400px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+                animation: 'fadeIn 0.3s ease forwards'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      Bitácora de Cierre
+                    </span>
+                    <h3 style={{ fontSize: '18px', fontFamily: 'var(--font-serif)', margin: 0 }}>Cierre Contable Mensual</h3>
+                  </div>
+                  <button 
+                    onClick={() => { setShowCloseModal(false); setCloseStep(1); }} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
+                  >
+                    <FiX size={20} />
+                  </button>
+                </div>
+
+                {/* Progress dot indicators */}
+                <div style={{ display: 'flex', gap: '8px', alignSelf: 'center', margin: '4px 0' }}>
+                  {[1, 2, 3, 4].map(s => (
+                    <div 
+                      key={s} 
+                      style={{ 
+                        width: '24px', 
+                        height: '4px', 
+                        borderRadius: '2px', 
+                        backgroundColor: s === closeStep 
+                          ? 'var(--text-main)' 
+                          : s < closeStep 
+                            ? '#27AE60' 
+                            : 'var(--border-color)',
+                        transition: 'all 0.3s ease'
+                      }} 
+                    />
+                  ))}
+                </div>
+
+                {/* STEP 1: JOY PROJECT */}
+                {closeStep === 1 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.25s ease' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Paso 1: Alegría Creativa ✦
+                    </span>
+                    <label style={{ fontSize: '13.5px', color: 'var(--text-main)', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }}>
+                      ¿Qué proyecto o logro te dio **más alegría** crear o avanzar durante este mes?
+                    </label>
+                    <textarea
+                      value={joyProject}
+                      onChange={e => setJoyProject(e.target.value)}
+                      placeholder="Ej: Empecé mi página de Facebook, grabé 5 vídeos geniales, logré terminar mi primer desarrollo..."
+                      style={{
+                        width: '100%',
+                        height: '90px',
+                        padding: '12px',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        background: 'var(--bg-app)',
+                        color: 'var(--text-main)',
+                        fontFamily: 'var(--font-sans)',
+                        outline: 'none',
+                        resize: 'none'
+                      }}
+                    />
+                    <button
+                      onClick={() => setCloseStep(2)}
+                      disabled={!joyProject.trim()}
+                      style={{
+                        backgroundColor: 'var(--text-main)',
+                        color: 'var(--bg-app)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        fontSize: '13px',
+                        cursor: joyProject.trim() ? 'pointer' : 'not-allowed',
+                        fontWeight: 600,
+                        opacity: joyProject.trim() ? 1 : 0.5,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      Siguiente Paso
+                    </button>
+                  </div>
+                )}
+
+                {/* STEP 2: FOCUS LEAKS */}
+                {closeStep === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.25s ease' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Paso 2: Enfoque y Fugas 🧐
+                    </span>
+                    <label style={{ fontSize: '13.5px', color: 'var(--text-main)', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }}>
+                      ¿En qué bloque de tiempo o actividad sentiste que **perdiste el enfoque** o procrastinaste más?
+                    </label>
+                    <textarea
+                      value={focusLeak}
+                      onChange={e => setFocusLeak(e.target.value)}
+                      placeholder="Ej: En las tardes editando vídeos, distracción con redes en el móvil, acostarme muy tarde..."
+                      style={{
+                        width: '100%',
+                        height: '90px',
+                        padding: '12px',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        background: 'var(--bg-app)',
+                        color: 'var(--text-main)',
+                        fontFamily: 'var(--font-sans)',
+                        outline: 'none',
+                        resize: 'none'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => setCloseStep(1)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: 'transparent',
+                          color: 'var(--text-main)',
+                          border: '1.5px solid var(--border-color)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        Atrás
+                      </button>
+                      <button
+                        onClick={() => setCloseStep(3)}
+                        disabled={!focusLeak.trim()}
+                        style={{
+                          flex: 1.5,
+                          backgroundColor: 'var(--text-main)',
+                          color: 'var(--bg-app)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: focusLeak.trim() ? 'pointer' : 'not-allowed',
+                          fontWeight: 600,
+                          opacity: focusLeak.trim() ? 1 : 0.5,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        Siguiente Paso
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3: HABIT TO POLISH */}
+                {closeStep === 3 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.25s ease' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Paso 3: Hábitos a Pulir 🚀
+                    </span>
+                    <label style={{ fontSize: '13.5px', color: 'var(--text-main)', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }}>
+                      ¿Qué **hábito o rutina clave** te comprometes a pulir o incorporar para el próximo mes?
+                    </label>
+                    <textarea
+                      value={habitToPolish}
+                      onChange={e => setHabitToPolish(e.target.value)}
+                      placeholder="Ej: Levantarme a las 7 AM para escribir guiones antes de editar, bloquear notificaciones..."
+                      style={{
+                        width: '100%',
+                        height: '90px',
+                        padding: '12px',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        background: 'var(--bg-app)',
+                        color: 'var(--text-main)',
+                        fontFamily: 'var(--font-sans)',
+                        outline: 'none',
+                        resize: 'none'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => setCloseStep(2)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: 'transparent',
+                          color: 'var(--text-main)',
+                          border: '1.5px solid var(--border-color)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        Atrás
+                      </button>
+                      <button
+                        onClick={() => setCloseStep(4)}
+                        disabled={!habitToPolish.trim()}
+                        style={{
+                          flex: 1.5,
+                          backgroundColor: 'var(--text-main)',
+                          color: 'var(--bg-app)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: habitToPolish.trim() ? 'pointer' : 'not-allowed',
+                          fontWeight: 600,
+                          opacity: habitToPolish.trim() ? 1 : 0.5,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        Ver Resumen
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4: FINANCIAL SUMMARY & CONFIRM */}
+                {closeStep === 4 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeIn 0.25s ease' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#27AE60', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Paso 4: Balance y Confirmación 🔒
+                    </span>
+                    
+                    <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      Revisa tus números acumulados antes de archivar de forma permanente:
+                    </p>
+
+                    <div style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span>Dinero Cobrado de Trabajo Extra:</span>
+                        <strong style={{ fontFamily: 'var(--font-serif)' }}>S/. {collectedIncomesSum}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span>Gasto Estimado Mensual:</span>
+                        <strong style={{ fontFamily: 'var(--font-serif)', color: 'var(--accent-color)' }}>S/. {estimatedExpensesMonth.toFixed(1)}</strong>
+                      </div>
+                      <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
+                        <span>Balance Neto:</span>
+                        <span style={{ fontFamily: 'var(--font-serif)', color: netEarningsMonth >= 0 ? '#27AE60' : 'var(--accent-color)' }}>
+                          S/. {netEarningsMonth.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Brief retro review card */}
+                    <div style={{ 
+                      fontSize: '11.5px', 
+                      color: 'var(--text-muted)', 
+                      border: '1px dashed var(--border-color)', 
+                      borderRadius: '8px', 
+                      padding: '12px',
+                      backgroundColor: 'rgba(25,25,25,0.01)',
+                      maxHeight: '120px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 600 }}>✦ Mayor Alegría:</span> {joyProject}
+                      </div>
+                      <div style={{ marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 600 }}>🧐 Fuga de Foco:</span> {focusLeak}
+                      </div>
+                      <div>
+                        <span style={{ fontWeight: 600 }}>🚀 Hábito a Pulir:</span> {habitToPolish}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => setCloseStep(3)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: 'transparent',
+                          color: 'var(--text-main)',
+                          border: '1.5px solid var(--border-color)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        Atrás
+                      </button>
+                      <button
+                        onClick={handlePerformClose}
+                        style={{
+                          flex: 2,
+                          backgroundColor: 'var(--text-main)',
+                          color: 'var(--bg-app)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <FiArchive size={14} />
+                        <span>Confirmar y Archivar Cierre</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {monthlyCloses.map(item => {
+              const isExpanded = expandedCloseId === item.id;
+              const hasRetro = item.joy_project || item.focus_leak || item.habit_to_polish;
+              
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => hasRetro && setExpandedCloseId(isExpanded ? null : item.id)}
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: hasRetro ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isExpanded ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div>
+                      <h4 style={{ fontSize: '14px', fontFamily: 'var(--font-serif)', fontWeight: 500 }}>
+                        {item.month_year} {hasRetro && <span style={{ fontSize: '9px', fontFamily: 'var(--font-sans)', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>{isExpanded ? '▲ Ocultar Diario' : '▼ Ver Diario'}</span>}
+                      </h4>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span>Ingresos: S/. {item.total_incomes}</span>
+                        <span>·</span>
+                        <span>Gastos: S/. {parseFloat(item.total_expenses as any).toFixed(0)}</span>
+                      </div>
+                    </div>
+
+                    <span style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: item.net_savings >= 0 ? '#27AE60' : 'var(--accent-color)'
+                    }}>
+                      {item.net_savings >= 0 ? '+' : ''}S/. {parseFloat(item.net_savings as any).toFixed(0)}
+                    </span>
+                  </div>
+
+                  {/* Expanded Retrospective details */}
+                  {isExpanded && hasRetro && (
+                    <div style={{
+                      borderTop: '1px solid var(--border-color)',
+                      marginTop: '12px',
+                      paddingTop: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      textAlign: 'left',
+                      animation: 'fadeIn 0.2s ease forwards'
+                    }}>
+                      {item.joy_project && (
+                        <div>
+                          <strong style={{ color: 'var(--accent-color)', fontSize: '11px', display: 'block', marginBottom: '2px' }}>✦ Mayor Alegría Creativa:</strong>
+                          <span style={{ color: 'var(--text-main)', fontStyle: 'italic' }}>"{item.joy_project}"</span>
+                        </div>
+                      )}
+                      {item.focus_leak && (
+                        <div>
+                          <strong style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '2px' }}>🧐 Fuga de Enfoque Detectada:</strong>
+                          <span style={{ color: 'var(--text-main)', fontStyle: 'italic' }}>"{item.focus_leak}"</span>
+                        </div>
+                      )}
+                      {item.habit_to_polish && (
+                        <div>
+                          <strong style={{ color: '#27AE60', fontSize: '11px', display: 'block', marginBottom: '2px' }}>🚀 Compromiso de Hábito:</strong>
+                          <span style={{ color: 'var(--text-main)', fontStyle: 'italic' }}>"{item.habit_to_polish}"</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {monthlyCloses.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0', fontStyle: 'italic' }}>
+                No hay cierres históricos de mes registrados.
+              </p>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    {/* ── Info Drawers ── */}
+    <InfoDrawer
+      isOpen={infoDrawer === 'survivalDays'}
+      onClose={closeInfo}
+      title="¿Qué son los Días de Tranquilidad?"
+    >
+      <p>
+        Son la cantidad de días que puedes vivir <strong>sin estresarte</strong> si tus ingresos de internet se detuvieran hoy mismo.
+      </p>
+      <p>
+        Se calcula tomando todo el dinero que tienes disponible (BCP + Efectivo) y dividiéndolo entre lo que gastas cada semana. Si el número es alto, estás en zona segura. Si es bajo, es una señal de que necesitas acelerar tus proyectos o reducir gastos.
+      </p>
+      <p style={{ color: 'var(--accent-color)', fontWeight: 600 }}>
+        🎯 Meta recomendada: superar los 45 días de tranquilidad.
+      </p>
+    </InfoDrawer>
+
+    <InfoDrawer
+      isOpen={infoDrawer === 'safety'}
+      onClose={closeInfo}
+      title="¿Cómo funciona el nivel de seguridad?"
+    >
+      <p>
+        Tus ingresos de internet (Facebook páginas, proyectos digitales) son variables: un día pueden ser altos y otro día bajos.
+      </p>
+      <p>
+        <strong>Optimista (100%)</strong>: Cuenta todos tus ingresos como si llegarán seguros al 100%. Ideal para ver tu situación perfecta.
+      </p>
+      <p>
+        <strong>Seguro — Recomendado (60%)</strong>: Asume que solo el 60% de tus ingresos llegarán, para cubrir posibles caídas de visitas, penalizaciones o retrasos de pago.
+      </p>
+      <p>
+        <strong>Emergencia (0%)</strong>: Simula que quedas sin ningún ingreso de internet. Te muestra cuánto tiempo te duran solo tus ahorros. Es la prueba de fuego real.
+      </p>
+    </InfoDrawer>
+
+    <InfoDrawer
+      isOpen={infoDrawer === 'diversification'}
+      onClose={closeInfo}
+      title="¿Por qué diversificar mis fuentes de ingreso?"
+    >
+      <p>
+        Depender de un solo canal (por ejemplo, solo de Facebook Páginas) es arriesgado. Si esa plataforma te penaliza, cambia su algoritmo, o baja tus pagos, perderías todos tus ingresos de un golpe.
+      </p>
+      <p>
+        <strong>Grado D – Riesgo Crítico:</strong> 1 sola fuente de ingreso. Es el punto de mayor vulnerabilidad.
+      </p>
+      <p>
+        <strong>Grado C – Seguridad Inicial:</strong> 2 fuentes independientes. Ya tienes un colchón si una falla.
+      </p>
+      <p>
+        <strong>Grado B/A – Inmune:</strong> 3 o más fuentes. Tu negocio puede aguantar golpes externos sin desmoronarse.
+      </p>
+      <p style={{ color: '#27AE60', fontWeight: 600 }}>
+        🎯 Meta: llegar al Grado B/A añadiendo un nuevo proyecto de ingreso cada 2 meses.
+      </p>
+    </InfoDrawer>
+
+    <InfoDrawer
+      isOpen={infoDrawer === 'buffer'}
+      onClose={closeInfo}
+      title="¿Qué es el Respaldo Familiar?"
+    >
+      <p>
+        Es la cantidad de meses que podrías seguir aportando dinero a tu casa (tu meta mensual familiar) usando solo tus ahorros actuales, incluso si no generaras ningún ingreso.
+      </p>
+      <p>
+        Piénsalo como un fondo de seguridad familiar: te permite seguir apoyando en casa sin presión, mientras resuelves imprevistos o lanzas nuevos proyectos.
+      </p>
+      <p>
+        <strong>Meta ideal:</strong> tener al menos <strong>6 meses</strong> de cobertura guardados, lo que te da medio año de tranquilidad familiar completa.
+      </p>
+    </InfoDrawer>
+  </>
+  );
+}
+
