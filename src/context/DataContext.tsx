@@ -57,20 +57,19 @@ interface DataContextType {
   blocks: TimeBlock[];
   pendingBlocks: TimeBlock[];
   challenges: MiniChallenge[];
-  // Hoy Setters
   setBlocks: React.Dispatch<React.SetStateAction<TimeBlock[]>>;
   setPendingBlocks: React.Dispatch<React.SetStateAction<TimeBlock[]>>;
   setChallenges: React.Dispatch<React.SetStateAction<MiniChallenge[]>>;
   loadingHoy: boolean;
   refreshHoy: () => Promise<void>;
 
-  // Projects Setters
+  // Projects
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   loadingProjects: boolean;
   refreshProjects: () => Promise<void>;
 
-  // Finances Setters
+  // Finances
   finances: FinanceData;
   setFinances: React.Dispatch<React.SetStateAction<FinanceData>>;
   survivalDays: number;
@@ -88,38 +87,97 @@ interface DataContextType {
   loadingFinances: boolean;
   refreshFinances: () => Promise<void>;
 
-  // Global loading
+  // Global loading & Online status
   initialLoading: boolean;
+  isOnline: boolean;
   refreshAll: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Hoy States
-  const [blocks, setBlocks] = useState<TimeBlock[]>([]);
-  const [pendingBlocks, setPendingBlocks] = useState<TimeBlock[]>([]);
-  const [challenges, setChallenges] = useState<MiniChallenge[]>([]);
+  // Online Status State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Hoy States (Loaded from cache if available)
+  const [blocks, setBlocks] = useState<TimeBlock[]>(() => {
+    const cached = localStorage.getItem('korat_cache_blocks');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [pendingBlocks, setPendingBlocks] = useState<TimeBlock[]>(() => {
+    const cached = localStorage.getItem('korat_cache_pendingBlocks');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [challenges, setChallenges] = useState<MiniChallenge[]>(() => {
+    const cached = localStorage.getItem('korat_cache_challenges');
+    return cached ? JSON.parse(cached) : [];
+  });
   const [loadingHoy, setLoadingHoy] = useState(true);
 
-  // Projects States
-  const [projects, setProjects] = useState<Project[]>([]);
+  // Projects States (Loaded from cache if available)
+  const [projects, setProjects] = useState<Project[]>(() => {
+    const cached = localStorage.getItem('korat_cache_projects');
+    return cached ? JSON.parse(cached) : [];
+  });
   const [loadingProjects, setLoadingProjects] = useState(true);
 
-  // Finances States
-  const [finances, setFinances] = useState<FinanceData>({ total_balance: 0, weekly_burn_rate: 0 });
-  const [survivalDays, setSurvivalDays] = useState<number>(0);
-  const [incomes, setIncomes] = useState<IncomeItem[]>([]);
-  const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncomeItem[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
-  const [debts, setDebts] = useState<DebtItem[]>([]);
-  const [monthlyCloses, setMonthlyCloses] = useState<MonthlyClose[]>([]);
+  // Finances States (Loaded from cache if available)
+  const [finances, setFinances] = useState<FinanceData>(() => {
+    const cached = localStorage.getItem('korat_cache_finances');
+    return cached ? JSON.parse(cached) : { total_balance: 0, weekly_burn_rate: 0 };
+  });
+  const [survivalDays, setSurvivalDays] = useState<number>(() => {
+    const cached = localStorage.getItem('korat_cache_survivalDays');
+    return cached ? parseInt(cached, 10) : 0;
+  });
+  const [incomes, setIncomes] = useState<IncomeItem[]>(() => {
+    const cached = localStorage.getItem('korat_cache_incomes');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncomeItem[]>(() => {
+    const cached = localStorage.getItem('korat_cache_recurringIncomes');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(() => {
+    const cached = localStorage.getItem('korat_cache_expenses');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [debts, setDebts] = useState<DebtItem[]>(() => {
+    const cached = localStorage.getItem('korat_cache_debts');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [monthlyCloses, setMonthlyCloses] = useState<MonthlyClose[]>(() => {
+    const cached = localStorage.getItem('korat_cache_monthlyCloses');
+    return cached ? JSON.parse(cached) : [];
+  });
   const [loadingFinances, setLoadingFinances] = useState(true);
 
-  const [initialLoading, setInitialLoading] = useState(true);
+  // If there's already cached data, we don't block the UI with an initial loader
+  const [initialLoading, setInitialLoading] = useState(() => {
+    const hasCache = localStorage.getItem('korat_cache_blocks') || localStorage.getItem('korat_cache_projects');
+    return !hasCache;
+  });
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Fetch Hoy Data
   const refreshHoy = async () => {
+    if (!navigator.onLine) {
+      setLoadingHoy(false);
+      return;
+    }
     try {
       const today = new Date().toISOString().split('T')[0];
       await supabase.rpc('generate_daily_blocks', { target_date: today });
@@ -130,7 +188,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('date', today)
         .order('start_time');
 
-      if (todayBlocks) setBlocks(todayBlocks);
+      if (todayBlocks) {
+        setBlocks(todayBlocks);
+        localStorage.setItem('korat_cache_blocks', JSON.stringify(todayBlocks));
+      }
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -141,7 +202,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('is_completed', false)
         .order('start_time');
 
-      if (yesterdayPending) setPendingBlocks(yesterdayPending);
+      if (yesterdayPending) {
+        setPendingBlocks(yesterdayPending);
+        localStorage.setItem('korat_cache_pendingBlocks', JSON.stringify(yesterdayPending));
+      }
 
       const { data: challengesData } = await supabase
         .from('mini_challenges')
@@ -149,9 +213,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('active', true)
         .order('started_at');
         
-      if (challengesData) setChallenges(challengesData);
+      if (challengesData) {
+        setChallenges(challengesData);
+        localStorage.setItem('korat_cache_challenges', JSON.stringify(challengesData));
+      }
     } catch (err) {
-      console.error('Error fetching Hoy data:', err);
+      console.error('Error fetching Hoy data (offline?):', err);
     } finally {
       setLoadingHoy(false);
     }
@@ -159,6 +226,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch Projects Data
   const refreshProjects = async () => {
+    if (!navigator.onLine) {
+      setLoadingProjects(false);
+      return;
+    }
     try {
       const { data: projData } = await supabase
         .from('projects')
@@ -176,9 +247,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           milestones: msData ? msData.filter(m => m.project_id === p.id) : []
         }));
         setProjects(combined);
+        localStorage.setItem('korat_cache_projects', JSON.stringify(combined));
       }
     } catch (err) {
-      console.error('Error fetching Projects data:', err);
+      console.error('Error fetching Projects data (offline?):', err);
     } finally {
       setLoadingProjects(false);
     }
@@ -186,52 +258,80 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch Finances Data
   const refreshFinances = async () => {
+    if (!navigator.onLine) {
+      setLoadingFinances(false);
+      return;
+    }
     try {
       // 1. Fetch finances
       const { data: finData } = await supabase.from('finances').select('*').eq('id', 1).single();
       if (finData) {
-        setFinances({
+        const formattedFin = {
           total_balance: parseFloat(finData.total_balance as any) || 0,
           weekly_burn_rate: parseFloat(finData.weekly_burn_rate as any) || 0,
           bank_balance: parseFloat(finData.bank_balance as any) || 0,
           cash_balance: parseFloat(finData.cash_balance as any) || 0
-        });
+        };
+        setFinances(formattedFin);
+        localStorage.setItem('korat_cache_finances', JSON.stringify(formattedFin));
       } else {
         await supabase.from('finances').insert({ id: 1, total_balance: 1000, weekly_burn_rate: 150, bank_balance: 1000, cash_balance: 0 });
       }
 
       // 2. Fetch one-time incomes
       const { data: incomesData } = await supabase.from('income_pipeline').select('*').order('due_date');
-      if (incomesData) setIncomes(incomesData);
+      if (incomesData) {
+        setIncomes(incomesData);
+        localStorage.setItem('korat_cache_incomes', JSON.stringify(incomesData));
+      }
 
       // 3. Fetch recurring incomes
       const { data: recData } = await supabase.from('recurring_incomes').select('*').order('amount', { ascending: false });
-      if (recData) setRecurringIncomes(recData);
+      if (recData) {
+        setRecurringIncomes(recData);
+        localStorage.setItem('korat_cache_recurringIncomes', JSON.stringify(recData));
+      }
 
       // 4. Fetch expenses
       const { data: expensesData } = await supabase.from('expenses').select('*').order('amount', { ascending: false });
-      if (expensesData) setExpenses(expensesData);
+      if (expensesData) {
+        setExpenses(expensesData);
+        localStorage.setItem('korat_cache_expenses', JSON.stringify(expensesData));
+      }
 
       // 5. Fetch debts
       const { data: debtsData } = await supabase.from('debts').select('*').order('due_date');
-      if (debtsData) setDebts(debtsData);
+      if (debtsData) {
+        setDebts(debtsData);
+        localStorage.setItem('korat_cache_debts', JSON.stringify(debtsData));
+      }
 
       // 6. Fetch monthly closes history
       const { data: closesData } = await supabase.from('monthly_closes').select('*').order('closed_at', { ascending: false });
-      if (closesData) setMonthlyCloses(closesData);
+      if (closesData) {
+        setMonthlyCloses(closesData);
+        localStorage.setItem('korat_cache_monthlyCloses', JSON.stringify(closesData));
+      }
 
       // 7. Fetch calculated survival days via RPC
       const { data: daysData } = await supabase.rpc('calculate_survival_days');
-      if (daysData !== null) setSurvivalDays(daysData);
+      if (daysData !== null) {
+        setSurvivalDays(daysData);
+        localStorage.setItem('korat_cache_survivalDays', daysData.toString());
+      }
     } catch (err) {
-      console.error('Error fetching Finances data:', err);
+      console.error('Error fetching Finances data (offline?):', err);
     } finally {
       setLoadingFinances(false);
     }
   };
 
   const refreshAll = async () => {
-    setInitialLoading(true);
+    // If there is cache, don't set loading screen
+    const hasCache = localStorage.getItem('korat_cache_blocks') || localStorage.getItem('korat_cache_projects');
+    if (!hasCache) {
+      setInitialLoading(true);
+    }
     // Fetch all in parallel
     await Promise.all([
       refreshHoy(),
@@ -277,6 +377,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loadingFinances,
       refreshFinances,
       initialLoading,
+      isOnline,
       refreshAll
     }}>
       {children}

@@ -11,7 +11,7 @@ import { DataProvider, useData } from './context/DataContext';
 import './index.css';
 
 function AnimatedRoutes() {
-  const { initialLoading } = useData();
+  const { initialLoading, isOnline } = useData();
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -68,14 +68,37 @@ function AnimatedRoutes() {
   }
 
   return (
-    <div ref={containerRef} style={{ flex: 1, overflowY: 'auto' }}>
-      <Routes location={location}>
-        <Route path="/" element={<HoyView />} />
-        <Route path="/enfoque" element={<EnfoqueView />} />
-        <Route path="/proyectos" element={<ProyectosView />} />
-        <Route path="/progreso" element={<ProgresoView />} />
-        <Route path="/diseno" element={<DesignModeView />} />
-      </Routes>
+    <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {!isOnline && (
+        <div style={{
+          backgroundColor: 'var(--accent-color)',
+          color: '#fff',
+          fontSize: '11px',
+          fontFamily: 'var(--font-sans)',
+          fontWeight: 600,
+          textAlign: 'center',
+          padding: '6px 12px',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          animation: 'fadeIn 0.25s ease',
+          letterSpacing: '0.3px'
+        }}>
+          <span>Modo sin conexión · Datos guardados localmente</span>
+        </div>
+      )}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <Routes location={location}>
+          <Route path="/" element={<HoyView />} />
+          <Route path="/enfoque" element={<EnfoqueView />} />
+          <Route path="/proyectos" element={<ProyectosView />} />
+          <Route path="/progreso" element={<ProgresoView />} />
+          <Route path="/diseno" element={<DesignModeView />} />
+        </Routes>
+      </div>
     </div>
   );
 }
