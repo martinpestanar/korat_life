@@ -3,65 +3,24 @@ import { supabase } from '../lib/supabase';
 import { FiCheck, FiPlus, FiTrash2, FiClock, FiX, FiArchive, FiInfo } from 'react-icons/fi';
 import InfoDrawer from './InfoDrawer';
 
-interface FinanceData {
-  total_balance: number;
-  weekly_burn_rate: number;
-  bank_balance?: number;
-  cash_balance?: number;
-}
-
-interface IncomeItem {
-  id: string;
-  description: string;
-  amount: number;
-  status: 'pending' | 'collected';
-  due_date: string;
-}
-
-interface RecurringIncomeItem {
-  id: string;
-  description: string;
-  amount: number;
-  frequency: 'weekly' | 'monthly';
-}
-
-interface ExpenseItem {
-  id: string;
-  description: string;
-  amount: number;
-  frequency: 'weekly' | 'monthly';
-}
-
-interface DebtItem {
-  id: string;
-  description: string;
-  total_amount: number;
-  due_date: string;
-}
-
-interface MonthlyClose {
-  id: string;
-  month_year: string;
-  total_incomes: number;
-  total_expenses: number;
-  net_savings: number;
-  closed_at: string;
-  joy_project?: string | null;
-  focus_leak?: string | null;
-  habit_to_polish?: string | null;
-}
+import { useData, type IncomeItem, type RecurringIncomeItem } from '../context/DataContext';
 
 export default function SurvivalWidget() {
-  const [finances, setFinances] = useState<FinanceData>({ total_balance: 0, weekly_burn_rate: 0 });
-  const [_survivalDays, setSurvivalDays] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const {
+    finances,
+    setFinances,
+    survivalDays: _survivalDays,
+    setSurvivalDays,
+    incomes,
+    recurringIncomes,
+    expenses,
+    debts,
+    monthlyCloses,
+    loadingFinances,
+    refreshFinances: fetchData
+  } = useData();
 
-  // Lists
-  const [incomes, setIncomes] = useState<IncomeItem[]>([]);
-  const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncomeItem[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
-  const [debts, setDebts] = useState<DebtItem[]>([]);
-  const [monthlyCloses, setMonthlyCloses] = useState<MonthlyClose[]>([]);
+  const loading = loadingFinances && finances.total_balance === 0;
 
   // Projection Scenarios and Safety Haircuts
   const [scenario, setScenario] = useState<'actual' | 'meta'>('actual');
@@ -107,52 +66,6 @@ export default function SurvivalWidget() {
   const [infoDrawer, setInfoDrawer] = useState<string | null>(null);
   const openInfo = (key: string) => setInfoDrawer(key);
   const closeInfo = () => setInfoDrawer(null);
-
-  const fetchData = async () => {
-    try {
-      // 1. Fetch finances
-      const { data: finData } = await supabase.from('finances').select('*').eq('id', 1).single();
-      if (finData) {
-        setFinances({
-          total_balance: parseFloat(finData.total_balance as any) || 0,
-          weekly_burn_rate: parseFloat(finData.weekly_burn_rate as any) || 0,
-          bank_balance: parseFloat(finData.bank_balance as any) || 0,
-          cash_balance: parseFloat(finData.cash_balance as any) || 0
-        });
-      } else {
-        await supabase.from('finances').insert({ id: 1, total_balance: 1000, weekly_burn_rate: 150, bank_balance: 1000, cash_balance: 0 });
-      }
-
-      // 2. Fetch one-time incomes
-      const { data: incomesData } = await supabase.from('income_pipeline').select('*').order('due_date');
-      if (incomesData) setIncomes(incomesData);
-
-      // 3. Fetch recurring incomes
-      const { data: recData } = await supabase.from('recurring_incomes').select('*').order('amount', { ascending: false });
-      if (recData) setRecurringIncomes(recData);
-
-      // 4. Fetch expenses
-      const { data: expensesData } = await supabase.from('expenses').select('*').order('amount', { ascending: false });
-      if (expensesData) setExpenses(expensesData);
-
-      // 5. Fetch debts
-      const { data: debtsData } = await supabase.from('debts').select('*').order('due_date');
-      if (debtsData) setDebts(debtsData);
-
-      // 6. Fetch monthly closes history
-      const { data: closesData } = await supabase.from('monthly_closes').select('*').order('closed_at', { ascending: false });
-      if (closesData) setMonthlyCloses(closesData);
-
-      // 7. Fetch calculated survival days via RPC
-      const { data: daysData } = await supabase.rpc('calculate_survival_days');
-      if (daysData !== null) setSurvivalDays(daysData);
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchData();

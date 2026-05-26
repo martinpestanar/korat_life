@@ -7,7 +7,7 @@ import SwipeableTimeBlockCard from '../components/SwipeableTimeBlockCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import BlockNotesModal from '../components/BlockNotesModal';
 import PillarsBar from '../components/PillarsBar';
-import MiniChallengeCard, { type MiniChallenge } from '../components/MiniChallengeCard';
+import MiniChallengeCard from '../components/MiniChallengeCard';
 import { supabase } from '../lib/supabase';
 import ImmersionModal from '../components/ImmersionModal';
 
@@ -31,13 +31,22 @@ function getDayLabel(): string {
     .replace(/^./, c => c.toUpperCase());
 }
 
+import { useData } from '../context/DataContext';
+
 export default function HoyView() {
   const navigate = useNavigate();
-  const [blocks, setBlocks] = useState<TimeBlock[]>([]);
-  const [pendingBlocks, setPendingBlocks] = useState<TimeBlock[]>([]);
-  const [challenges, setChallenges] = useState<MiniChallenge[]>([]);
+  const {
+    blocks,
+    setBlocks,
+    pendingBlocks,
+    setPendingBlocks,
+    challenges,
+    loadingHoy,
+    refreshHoy: fetchBlocksAndChallenges
+  } = useData();
+
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loading = loadingHoy && blocks.length === 0;
   const [pillarsVersion, setPillarsVersion] = useState(0);
   const [immersionBlock, setImmersionBlock] = useState<TimeBlock | null>(null);
 
@@ -117,44 +126,7 @@ export default function HoyView() {
     window.dispatchEvent(new Event('korat_focus_changed'));
   };
 
-  const fetchBlocksAndChallenges = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      await supabase.rpc('generate_daily_blocks', { target_date: today });
 
-      const { data: todayBlocks } = await supabase
-        .from('daily_blocks')
-        .select('*, pillars:pillars(id, name, label), subtasks:subtasks(*)')
-        .eq('date', today)
-        .order('start_time');
-
-      if (todayBlocks) setBlocks(todayBlocks);
-
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const { data: yesterdayPending } = await supabase
-        .from('daily_blocks')
-        .select('*, pillars:pillars(id, name, label), subtasks:subtasks(*)')
-        .eq('date', yesterday.toISOString().split('T')[0])
-        .eq('is_completed', false)
-        .order('start_time');
-
-      if (yesterdayPending) setPendingBlocks(yesterdayPending);
-
-      const { data: challengesData } = await supabase
-        .from('mini_challenges')
-        .select('*')
-        .eq('active', true)
-        .order('started_at');
-        
-      if (challengesData) setChallenges(challengesData);
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => { fetchBlocksAndChallenges(); }, []);
 

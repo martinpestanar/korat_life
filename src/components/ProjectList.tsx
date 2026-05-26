@@ -1,43 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import ProjectCard, { type Project } from './ProjectCard';
+import ProjectCard from './ProjectCard';
 import { FiPlus, FiX } from 'react-icons/fi';
 
+import { useData } from '../context/DataContext';
+
 export default function ProjectList() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { projects, loadingProjects, refreshProjects: fetchProjects } = useData();
+  const loading = loadingProjects && projects.length === 0;
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [targetIncome, setTargetIncome] = useState('');
-
-  const fetchProjects = async () => {
-    try {
-      const { data: projData } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      const { data: msData } = await supabase
-        .from('project_milestones')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (projData) {
-        const combined = projData.map(p => ({
-          ...p,
-          milestones: msData ? msData.filter(m => m.project_id === p.id) : []
-        }));
-        setProjects(combined);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchProjects();
