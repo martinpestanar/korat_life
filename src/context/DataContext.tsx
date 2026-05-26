@@ -55,10 +55,8 @@ export interface MonthlyClose {
 interface DataContextType {
   // Hoy
   blocks: TimeBlock[];
-  pendingBlocks: TimeBlock[];
   challenges: MiniChallenge[];
   setBlocks: React.Dispatch<React.SetStateAction<TimeBlock[]>>;
-  setPendingBlocks: React.Dispatch<React.SetStateAction<TimeBlock[]>>;
   setChallenges: React.Dispatch<React.SetStateAction<MiniChallenge[]>>;
   loadingHoy: boolean;
   refreshHoy: () => Promise<void>;
@@ -102,10 +100,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Hoy States (Loaded from cache if available)
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => {
     const cached = localStorage.getItem('korat_cache_blocks');
-    return cached ? JSON.parse(cached) : [];
-  });
-  const [pendingBlocks, setPendingBlocks] = useState<TimeBlock[]>(() => {
-    const cached = localStorage.getItem('korat_cache_pendingBlocks');
     return cached ? JSON.parse(cached) : [];
   });
   const [challenges, setChallenges] = useState<MiniChallenge[]>(() => {
@@ -193,19 +187,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('korat_cache_blocks', JSON.stringify(todayBlocks));
       }
 
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const { data: yesterdayPending } = await supabase
-        .from('daily_blocks')
-        .select('*, pillars:pillars(id, name, label), subtasks:subtasks(*)')
-        .eq('date', yesterday.toISOString().split('T')[0])
-        .eq('is_completed', false)
-        .order('start_time');
-
-      if (yesterdayPending) {
-        setPendingBlocks(yesterdayPending);
-        localStorage.setItem('korat_cache_pendingBlocks', JSON.stringify(yesterdayPending));
-      }
+      // Yesterday's pending blocks are no longer fetched or rolled over as whole blocks.
+      // Uncompleted subtasks are rolled over automatically inside generate_daily_blocks RPC.
 
       const { data: challengesData } = await supabase
         .from('mini_challenges')
@@ -350,8 +333,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <DataContext.Provider value={{
       blocks,
       setBlocks,
-      pendingBlocks,
-      setPendingBlocks,
       challenges,
       setChallenges,
       loadingHoy,

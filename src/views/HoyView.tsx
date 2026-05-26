@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSliders, FiStar, FiCheck, FiX } from 'react-icons/fi';
 import DailyGoalWidget from '../components/DailyGoalWidget';
-import PendingDrawer from '../components/PendingDrawer';
 import SwipeableTimeBlockCard from '../components/SwipeableTimeBlockCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import BlockNotesModal from '../components/BlockNotesModal';
@@ -38,8 +37,6 @@ export default function HoyView() {
   const {
     blocks,
     setBlocks,
-    pendingBlocks,
-    setPendingBlocks,
     challenges,
     loadingHoy,
     refreshHoy: fetchBlocksAndChallenges
@@ -233,30 +230,7 @@ export default function HoyView() {
     await supabase.from('daily_blocks').update({ notes }).eq('id', id);
   };
 
-  const handleIntegratePending = async (id: string) => {
-    const blockToIntegrate = pendingBlocks.find(b => b.id === id);
-    if (!blockToIntegrate) return;
-    const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase
-      .from('daily_blocks')
-      .insert({
-        date: today,
-        template_id: blockToIntegrate.template_id,
-        period: blockToIntegrate.period,
-        start_time: blockToIntegrate.start_time,
-        end_time: blockToIntegrate.end_time,
-        title: `[Urgente] ${blockToIntegrate.title}`,
-        is_completed: false,
-        notes: blockToIntegrate.notes
-      })
-      .select()
-      .single();
 
-    if (data) {
-      setBlocks(prev => [...prev, data].sort((a, b) => a.start_time.localeCompare(b.start_time)));
-      setPendingBlocks(prev => prev.filter(b => b.id !== id));
-    }
-  };
 
   const periods = ['morning', 'afternoon', 'night'];
   const blocksByPeriod = periods.reduce<Record<string, TimeBlock[]>>((acc, p) => {
@@ -281,7 +255,6 @@ export default function HoyView() {
     }}>
       <DailyGoalWidget completed={completedWeight} total={blocks.length} />
       <PillarsBar key={pillarsVersion} />
-      <PendingDrawer pendingBlocks={pendingBlocks} onIntegrate={handleIntegratePending} />
 
       <div style={{ padding: '20px' }}>
         {activeFocus && (
