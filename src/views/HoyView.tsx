@@ -6,7 +6,6 @@ import SwipeableTimeBlockCard from '../components/SwipeableTimeBlockCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import BlockNotesModal from '../components/BlockNotesModal';
 import PillarsBar from '../components/PillarsBar';
-import MiniChallengeCard from '../components/MiniChallengeCard';
 import { supabase } from '../lib/supabase';
 import ImmersionModal from '../components/ImmersionModal';
 
@@ -37,7 +36,6 @@ export default function HoyView() {
   const {
     blocks,
     setBlocks,
-    challenges,
     loadingHoy,
     refreshHoy: fetchBlocksAndChallenges
   } = useData();
@@ -345,24 +343,7 @@ export default function HoyView() {
           </button>
         </div>
 
-        {challenges.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <h2 style={{
-              fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px',
-              fontFamily: 'var(--font-sans)', fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '2px'
-            }}>
-              Mini Retos Activos
-            </h2>
-            {challenges.map(challenge => (
-              <MiniChallengeCard
-                key={challenge.id}
-                challenge={challenge}
-                onUpdate={fetchBlocksAndChallenges}
-              />
-            ))}
-          </div>
-        )}
+
 
         {/* Swipe micro-hint — compact, visual */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', opacity: 0.45 }}>
