@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { FiAward, FiCheckCircle } from 'react-icons/fi';
+import { getLocalDateString } from '../lib/dateUtils';
 
 interface StreakData {
   current_streak: number;
@@ -39,7 +40,7 @@ export default function StreakWidget() {
     fetchStreak();
   }, []);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const isCheckedInToday = streak?.last_check_in === todayStr;
 
   const handleCheckIn = async () => {

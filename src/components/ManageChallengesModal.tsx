@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { FiX, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import type { MiniChallenge } from './MiniChallengeCard';
+import { getLocalDateString } from '../lib/dateUtils';
 
 interface Pillar {
   id: string;
@@ -137,7 +138,7 @@ export default function ManageChallengesModal({
         .update({
           active: nextActive,
           // If activating, reset day counter and start date to today
-          ...(nextActive ? { current_day: 0, started_at: new Date().toISOString().split('T')[0], last_check_in: null } : {})
+          ...(nextActive ? { current_day: 0, started_at: getLocalDateString(), last_check_in: null } : {})
         })
         .eq('id', ch.id);
       

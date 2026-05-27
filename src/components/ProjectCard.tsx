@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiChevronDown, FiChevronUp, FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiTrendingUp, FiStar, FiCalendar, FiTarget } from 'react-icons/fi';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export interface Milestone {
   id: string;
@@ -79,7 +80,7 @@ export default function ProjectCard({ project, onUpdate }: { project: Project, o
 
   const handleSendToDailyRoutine = async (milestone: Milestone) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       
       // Fetch daily blocks for today
       const { data: todayBlocks } = await supabase

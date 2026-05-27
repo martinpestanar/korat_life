@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export interface MiniChallenge {
   id: string;
@@ -21,7 +22,7 @@ export default function MiniChallengeCard({
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const isCheckedToday = challenge.last_check_in === todayStr;
   const progress = Math.min(challenge.current_day / challenge.duration_days, 1);
 

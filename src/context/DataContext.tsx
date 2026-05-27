@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { type Project } from '../components/ProjectCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import { type MiniChallenge } from '../components/MiniChallengeCard';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export interface FinanceData {
   total_balance: number;
@@ -100,7 +101,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Hoy States (Loaded from cache if available)
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => {
     const cached = localStorage.getItem('korat_cache_blocks');
-    return cached ? JSON.parse(cached) : [];
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      const today = getLocalDateString();
+      if (parsed.length > 0 && parsed[0].date === today) {
+        return parsed;
+      }
+    }
+    return [];
   });
   const [challenges, setChallenges] = useState<MiniChallenge[]>(() => {
     const cached = localStorage.getItem('korat_cache_challenges');
@@ -173,7 +181,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       await supabase.rpc('generate_daily_blocks', { target_date: today });
 
       const { data: todayBlocks } = await supabase
