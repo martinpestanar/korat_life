@@ -126,26 +126,9 @@ export default function DesignModeView() {
           .eq('id', editingTemplate.id);
 
         if (error) throw error;
-
-        // Sync to daily_blocks if editing template matches today's day type
-        if (dayTypeFilter === getTodayDayType()) {
-          const today = getLocalDateString();
-          await supabase
-            .from('daily_blocks')
-            .update({
-              title,
-              start_time: startTime + ':00',
-              end_time: endTime + ':00',
-              notes,
-              pillar_id: pillarId || null,
-              period: calculatedPeriod
-            })
-            .eq('date', today)
-            .eq('template_id', editingTemplate.id);
-        }
       } else {
         // INSERT
-        const { data: newTemplate, error } = await supabase
+        const { error } = await supabase
           .from('block_templates')
           .insert({
             day_type: dayTypeFilter,
@@ -155,29 +138,9 @@ export default function DesignModeView() {
             notes,
             pillar_id: pillarId || null,
             period: calculatedPeriod
-          })
-          .select()
-          .single();
+          });
 
         if (error) throw error;
-
-        // Sync to daily_blocks if new template matches today's day type
-        if (newTemplate && dayTypeFilter === getTodayDayType()) {
-          const today = getLocalDateString();
-          await supabase
-            .from('daily_blocks')
-            .insert({
-              date: today,
-              template_id: newTemplate.id,
-              title,
-              start_time: startTime + ':00',
-              end_time: endTime + ':00',
-              notes,
-              pillar_id: pillarId || null,
-              period: calculatedPeriod,
-              is_completed: false
-            });
-        }
       }
       resetForm();
       fetchData();
@@ -203,16 +166,6 @@ export default function DesignModeView() {
     try {
       const { error } = await supabase.from('block_templates').delete().eq('id', id);
       if (error) throw error;
-
-      // Sync to daily_blocks if deleting template matches today's day type
-      if (dayTypeFilter === getTodayDayType()) {
-        const today = getLocalDateString();
-        await supabase
-          .from('daily_blocks')
-          .delete()
-          .eq('date', today)
-          .eq('template_id', id);
-      }
 
       fetchData();
       await refreshHoy();
