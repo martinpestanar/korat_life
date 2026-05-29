@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiTrash2, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { supabase } from '../lib/supabase';
 import { getLocalDateString } from '../lib/dateUtils';
+import { useData } from '../context/DataContext';
 
 const getTodayDayType = (): 'weekday' | 'saturday' | 'sunday' => {
   const day = new Date().getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -32,6 +33,7 @@ interface BlockTemplate {
 
 export default function DesignModeView() {
   const navigate = useNavigate();
+  const { refreshHoy } = useData();
   const [dayTypeFilter, setDayTypeFilter] = useState<'weekday' | 'saturday' | 'sunday'>('weekday');
   const [templates, setTemplates] = useState<BlockTemplate[]>([]);
   const [pillars, setPillars] = useState<Pillar[]>([]);
@@ -179,6 +181,7 @@ export default function DesignModeView() {
       }
       resetForm();
       fetchData();
+      await refreshHoy();
     } catch (err: any) {
       alert(err.message || 'Error al guardar la plantilla.');
     }
@@ -212,6 +215,7 @@ export default function DesignModeView() {
       }
 
       fetchData();
+      await refreshHoy();
     } catch (err: any) {
       alert(err.message || 'Error al eliminar la plantilla.');
     }
