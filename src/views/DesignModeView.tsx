@@ -144,7 +144,9 @@ export default function DesignModeView() {
       }
       resetForm();
       fetchData();
+      localStorage.removeItem('korat_cache_blocks');
       await refreshHoy();
+      window.location.href = '/';
     } catch (err: any) {
       alert(err.message || 'Error al guardar la plantilla.');
     }
@@ -167,8 +169,10 @@ export default function DesignModeView() {
       const { error } = await supabase.from('block_templates').delete().eq('id', id);
       if (error) throw error;
 
+      localStorage.removeItem('korat_cache_blocks');
       fetchData();
       await refreshHoy();
+      window.location.href = '/';
     } catch (err: any) {
       alert(err.message || 'Error al eliminar la plantilla.');
     }
