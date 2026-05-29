@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiLock, FiPlus, FiTrash2, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiTrash2, FiEdit2, FiCheck, FiX } from 'react-icons/fi';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
+
+const getTodayDayType = (): 'weekday' | 'saturday' | 'sunday' => {
+  const day = new Date().getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  if (day === 0) return 'sunday';
+  if (day === 6) return 'saturday';
+  return 'weekday';
+};
 
 interface Pillar {
   id: string;
@@ -39,9 +47,6 @@ export default function DesignModeView() {
   const [pillarId, setPillarId] = useState('');
   const [period, setPeriod] = useState<'morning' | 'afternoon' | 'night'>('morning');
 
-  // Lock status
-  const [lockDaysLeft, setLockDaysLeft] = useState<number | null>(null);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -49,35 +54,11 @@ export default function DesignModeView() {
       const { data: pillarsData } = await supabase.from('pillars').select('*');
       if (pillarsData) setPillars(pillarsData);
 
-      // Fetch templates
       const { data: templatesData } = await supabase
         .from('block_templates')
         .select('*, pillars:pillars(id, name, label)')
         .order('start_time');
-      
-      if (templatesData) {
-        setTemplates(templatesData);
-        
-        // Calculate lock status for weekdays
-        const weekdayTemplates = templatesData.filter(t => t.day_type === 'weekday');
-        let maxLockDate: Date | null = null;
-        weekdayTemplates.forEach(t => {
-          if (t.lock_until) {
-            const d = new Date(t.lock_until);
-            if (!maxLockDate || d > maxLockDate) {
-              maxLockDate = d;
-            }
-          }
-        });
-
-        if (maxLockDate && (maxLockDate as Date) > new Date()) {
-          const diffTime = (maxLockDate as Date).getTime() - new Date().getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setLockDaysLeft(diffDays);
-        } else {
-          setLockDaysLeft(null);
-        }
-      }
+      if (templatesData) setTemplates(templatesData);
     } catch (err) {
       console.error('Error fetching design data:', err);
     } finally {
@@ -143,9 +124,26 @@ export default function DesignModeView() {
           .eq('id', editingTemplate.id);
 
         if (error) throw error;
+
+        // Sync to daily_blocks if editing template matches today's day type
+        if (dayTypeFilter === getTodayDayType()) {
+          const today = getLocalDateString();
+          await supabase
+            .from('daily_blocks')
+            .update({
+              title,
+              start_time: startTime + ':00',
+              end_time: endTime + ':00',
+              notes,
+              pillar_id: pillarId || null,
+              period: calculatedPeriod
+            })
+            .eq('date', today)
+            .eq('template_id', editingTemplate.id);
+        }
       } else {
         // INSERT
-        const { error } = await supabase
+        const { data: newTemplate, error } = await supabase
           .from('block_templates')
           .insert({
             day_type: dayTypeFilter,
@@ -155,9 +153,29 @@ export default function DesignModeView() {
             notes,
             pillar_id: pillarId || null,
             period: calculatedPeriod
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Sync to daily_blocks if new template matches today's day type
+        if (newTemplate && dayTypeFilter === getTodayDayType()) {
+          const today = getLocalDateString();
+          await supabase
+            .from('daily_blocks')
+            .insert({
+              date: today,
+              template_id: newTemplate.id,
+              title,
+              start_time: startTime + ':00',
+              end_time: endTime + ':00',
+              notes,
+              pillar_id: pillarId || null,
+              period: calculatedPeriod,
+              is_completed: false
+            });
+        }
       }
       resetForm();
       fetchData();
@@ -182,30 +200,24 @@ export default function DesignModeView() {
     try {
       const { error } = await supabase.from('block_templates').delete().eq('id', id);
       if (error) throw error;
+
+      // Sync to daily_blocks if deleting template matches today's day type
+      if (dayTypeFilter === getTodayDayType()) {
+        const today = getLocalDateString();
+        await supabase
+          .from('daily_blocks')
+          .delete()
+          .eq('date', today)
+          .eq('template_id', id);
+      }
+
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Error al eliminar la plantilla.');
     }
   };
 
-  const handleLockWeekdays = async () => {
-    if (!confirm('¿Estás seguro de Activar el Compromiso de 60 Días? Esta acción blindará tu rutina de Lunes a Viernes y no podrás editarla, borrarla ni añadir nuevos bloques por los próximos 60 días.')) return;
-    try {
-      const lockUntil = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase
-        .from('block_templates')
-        .update({ lock_until: lockUntil })
-        .eq('day_type', 'weekday');
-
-      if (error) throw error;
-      alert('🔒 Compromiso activado. ¡Tu rutina ha sido blindada con éxito!');
-      fetchData();
-    } catch (err: any) {
-      alert(err.message || 'Error al activar el compromiso.');
-    }
-  };
-
-  const isLocked = dayTypeFilter === 'weekday' && lockDaysLeft !== null;
+  const isLocked = false;
 
   return (
     <div style={{ padding: '20px 20px 100px', display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--bg-app)' }}>
@@ -246,29 +258,7 @@ export default function DesignModeView() {
         ))}
       </div>
 
-      {/* Lock Banner */}
-      {isLocked && (
-        <div style={{
-          backgroundColor: '#F7EFE9',
-          border: '1px solid #E5D5C5',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <FiLock size={20} color="var(--accent-color)" />
-          <div style={{ flex: 1 }}>
-            <p style={{ fontFamily: 'var(--font-serif)', fontSize: '15px', color: 'var(--text-main)', fontWeight: 500 }}>
-              Rutina blindada.
-            </p>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-muted)' }}>
-              Faltan {lockDaysLeft} días para poder editar tus bloques de Lunes a Viernes.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* Main List */}
       {!isAdding && (
@@ -355,31 +345,7 @@ export default function DesignModeView() {
             </button>
           )}
 
-          {dayTypeFilter === 'weekday' && !isLocked && getFilteredTemplates().length > 0 && (
-            <button
-              onClick={handleLockWeekdays}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                backgroundColor: 'transparent',
-                color: 'var(--accent-color)',
-                border: '1px solid var(--accent-color)',
-                borderRadius: '8px',
-                padding: '14px',
-                fontFamily: 'var(--font-sans)',
-                fontWeight: 600,
-                fontSize: '14px',
-                cursor: 'pointer',
-                marginTop: '12px',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <FiLock size={16} />
-              <span>Activar Compromiso de 60 Días</span>
-            </button>
-          )}
+
         </div>
       )}
 
