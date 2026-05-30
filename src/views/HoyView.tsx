@@ -5,6 +5,7 @@ import SwipeableTimeBlockCard from '../components/SwipeableTimeBlockCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import BlockNotesModal from '../components/BlockNotesModal';
 import BlockFormModal from '../components/BlockFormModal';
+import ConfirmModal from '../components/ConfirmModal';
 import PillarsBar from '../components/PillarsBar';
 import { supabase } from '../lib/supabase';
 import ImmersionModal from '../components/ImmersionModal';
@@ -42,6 +43,8 @@ export default function HoyView() {
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingBlockForForm, setEditingBlockForForm] = useState<TimeBlock | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [blockIdToDelete, setBlockIdToDelete] = useState<string | null>(null);
   const loading = loadingHoy && blocks.length === 0;
   const [pillarsVersion, setPillarsVersion] = useState(0);
   const [immersionBlock, setImmersionBlock] = useState<TimeBlock | null>(null);
@@ -229,16 +232,24 @@ export default function HoyView() {
     await supabase.from('daily_blocks').update({ notes }).eq('id', id);
   };
 
-  const handleDeleteBlock = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este bloque diario?')) return;
+  const handleDeleteBlock = (id: string) => {
+    setBlockIdToDelete(id);
+    setIsConfirmOpen(true);
+  };
+
+  const executeDeleteBlock = async () => {
+    if (!blockIdToDelete) return;
     try {
-      const { error } = await supabase.from('daily_blocks').delete().eq('id', id);
+      const { error } = await supabase.from('daily_blocks').delete().eq('id', blockIdToDelete);
       if (error) throw error;
       fetchBlocksAndChallenges();
       setPillarsVersion(prev => prev + 1);
     } catch (e) {
       console.error(e);
       alert('Error al eliminar el bloque.');
+    } finally {
+      setIsConfirmOpen(false);
+      setBlockIdToDelete(null);
     }
   };
 
@@ -425,6 +436,16 @@ export default function HoyView() {
         block={selectedBlock}
         onClose={() => setSelectedBlock(null)}
         onSave={handleSaveNotes}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        title="¿Eliminar bloque?"
+        message="¿Estás seguro de que quieres eliminar este bloque diario? Esta acción no se puede deshacer."
+        onConfirm={executeDeleteBlock}
+        onCancel={() => { setIsConfirmOpen(false); setBlockIdToDelete(null); }}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
       />
 
       {isFormOpen && (
