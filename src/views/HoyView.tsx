@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FiSliders, FiStar, FiCheck, FiX } from 'react-icons/fi';
+import { FiStar, FiCheck, FiX, FiPlus } from 'react-icons/fi';
 import DailyGoalWidget from '../components/DailyGoalWidget';
 import SwipeableTimeBlockCard from '../components/SwipeableTimeBlockCard';
 import { type TimeBlock } from '../components/TimeBlockCard';
 import BlockNotesModal from '../components/BlockNotesModal';
+import BlockFormModal from '../components/BlockFormModal';
 import PillarsBar from '../components/PillarsBar';
 import { supabase } from '../lib/supabase';
 import ImmersionModal from '../components/ImmersionModal';
@@ -32,7 +32,6 @@ function getDayLabel(): string {
 import { useData } from '../context/DataContext';
 
 export default function HoyView() {
-  const navigate = useNavigate();
   const {
     blocks,
     setBlocks,
@@ -41,6 +40,8 @@ export default function HoyView() {
   } = useData();
 
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingBlockForForm, setEditingBlockForForm] = useState<TimeBlock | null>(null);
   const loading = loadingHoy && blocks.length === 0;
   const [pillarsVersion, setPillarsVersion] = useState(0);
   const [immersionBlock, setImmersionBlock] = useState<TimeBlock | null>(null);
@@ -228,6 +229,29 @@ export default function HoyView() {
     await supabase.from('daily_blocks').update({ notes }).eq('id', id);
   };
 
+  const handleDeleteBlock = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este bloque diario?')) return;
+    try {
+      const { error } = await supabase.from('daily_blocks').delete().eq('id', id);
+      if (error) throw error;
+      fetchBlocksAndChallenges();
+      setPillarsVersion(prev => prev + 1);
+    } catch (e) {
+      console.error(e);
+      alert('Error al eliminar el bloque.');
+    }
+  };
+
+  const handleEditBlock = (block: TimeBlock) => {
+    setEditingBlockForForm(block);
+    setIsFormOpen(true);
+  };
+
+  const handleAddBlock = () => {
+    setEditingBlockForForm(null);
+    setIsFormOpen(true);
+  };
+
 
 
   const periods = ['morning', 'afternoon', 'night'];
@@ -322,24 +346,25 @@ export default function HoyView() {
             {getDayLabel()}
           </h1>
           <button
-            onClick={() => navigate('/diseno')}
+            onClick={handleAddBlock}
             style={{
-              background: 'none',
-              border: '1px solid var(--border-color)',
-              padding: '6px 14px',
+              background: 'var(--text-main)',
+              border: 'none',
+              padding: '8px 16px',
               borderRadius: '20px',
               fontSize: '12px',
               fontFamily: 'var(--font-sans)',
-              color: 'var(--text-muted)',
+              color: 'var(--bg-app)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              fontWeight: 600
             }}
           >
-            <FiSliders size={14} />
-            <span>Diseño</span>
+            <FiPlus size={14} />
+            <span>Añadir Bloque</span>
           </button>
         </div>
 
@@ -379,6 +404,8 @@ export default function HoyView() {
                     onDeleteSubtask={handleDeleteSubtask}
                     onStartImmersion={setImmersionBlock}
                     isActive={activeBlockId === block.id}
+                    onEditBlock={handleEditBlock}
+                    onDeleteBlock={handleDeleteBlock}
                   />
                 </div>
               ))}
@@ -399,6 +426,14 @@ export default function HoyView() {
         onClose={() => setSelectedBlock(null)}
         onSave={handleSaveNotes}
       />
+
+      {isFormOpen && (
+        <BlockFormModal
+          block={editingBlockForForm}
+          onClose={() => { setIsFormOpen(false); setEditingBlockForForm(null); }}
+          onSave={fetchBlocksAndChallenges}
+        />
+      )}
 
       {immersionBlock && (
         <ImmersionModal

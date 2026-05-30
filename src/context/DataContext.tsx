@@ -184,8 +184,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const today = getLocalDateString();
       // 1. Generate blocks for today if they don't exist yet
       await supabase.rpc('generate_daily_blocks', { target_date: today });
-      // 2. Always sync existing blocks with latest template data (titles, notes, times, pillar)
-      await supabase.rpc('sync_daily_blocks_from_templates', { target_date: today });
 
       const { data: todayBlocks } = await supabase
         .from('daily_blocks')

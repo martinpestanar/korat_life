@@ -11,6 +11,8 @@ interface SwipeableTimeBlockCardProps {
   onDeleteSubtask?: (blockId: string, subtaskId: string) => void;
   onStartImmersion?: (block: TimeBlock) => void;
   isActive?: boolean;
+  onEditBlock?: (block: TimeBlock) => void;
+  onDeleteBlock?: (id: string) => void;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -23,7 +25,9 @@ export default function SwipeableTimeBlockCard({
   onToggleSubtask,
   onDeleteSubtask,
   onStartImmersion,
-  isActive = false
+  isActive = false,
+  onEditBlock,
+  onDeleteBlock
 }: SwipeableTimeBlockCardProps) {
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -360,7 +364,33 @@ export default function SwipeableTimeBlockCard({
           </form>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEditBlock && onEditBlock(block); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              background: 'none', border: 'none', color: 'var(--text-muted)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              gap: '4px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
+            }}
+            title="Editar Bloque"
+          >
+            <FiEdit2 size={13} />
+            <span>Editar</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDeleteBlock && onDeleteBlock(block.id); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              background: 'none', border: 'none', color: 'var(--accent-color)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              gap: '4px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
+            }}
+            title="Eliminar Bloque"
+          >
+            <FiTrash2 size={13} />
+            <span>Eliminar</span>
+          </button>
           <button
             onClick={() => onOpenNotes(block)}
             onPointerDown={(e) => e.stopPropagation()}
@@ -370,7 +400,6 @@ export default function SwipeableTimeBlockCard({
               gap: '6px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
             }}
           >
-            <FiEdit2 size={14} />
             <span>{block.notes ? 'Ver Notas' : 'Añadir Notas'}</span>
           </button>
         </div>
