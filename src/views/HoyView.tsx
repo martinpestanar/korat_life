@@ -9,6 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { supabase } from '../lib/supabase';
 import ImmersionModal from '../components/ImmersionModal';
 import { getDailyCultureItem } from '../lib/rioCultureData';
+import AltarModal from '../components/AltarModal';
 
 const PERIOD_LABELS: Record<string, string> = {
   morning: 'Mañana',
@@ -48,6 +49,7 @@ export default function HoyView() {
   const loading = loadingHoy && blocks.length === 0;
   const [pillarsVersion, setPillarsVersion] = useState(0);
   const [immersionBlock, setImmersionBlock] = useState<TimeBlock | null>(null);
+  const [isAltarOpen, setIsAltarOpen] = useState(false);
 
   // Estados para Brisa do Dia (Cultura de Río / Portugués)
   const [cultureItem] = useState(() => getDailyCultureItem());
@@ -907,9 +909,39 @@ export default function HoyView() {
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '26px', color: 'var(--text-main)', fontFamily: 'var(--font-serif)', margin: 0 }}>
-            {getDayLabel()}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '26px', color: 'var(--text-main)', fontFamily: 'var(--font-serif)', margin: 0 }}>
+              {getDayLabel()}
+            </h1>
+            <button
+              onClick={() => setIsAltarOpen(true)}
+              title="Abrir Altar de Consciencia"
+              style={{
+                background: 'rgba(212, 106, 67, 0.08)',
+                border: '1px solid rgba(212, 106, 67, 0.15)',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-color)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                outline: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.08)';
+                e.currentTarget.style.background = 'rgba(212, 106, 67, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(212, 106, 67, 0.08)';
+              }}
+            >
+              <FiHeart size={15} style={{ fill: 'rgba(212, 106, 67, 0.1)' }} />
+            </button>
+          </div>
           <button
             onClick={handleAddBlock}
             style={{
@@ -1017,6 +1049,11 @@ export default function HoyView() {
           onRefresh={fetchBlocksAndChallenges}
         />
       )}
+
+      <AltarModal
+        isOpen={isAltarOpen}
+        onClose={() => setIsAltarOpen(false)}
+      />
     </div>
   );
 }
