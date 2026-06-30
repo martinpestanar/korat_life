@@ -6,6 +6,7 @@ import HoyView from './views/HoyView';
 import EnfoqueView from './views/EnfoqueView';
 import ProyectosView from './views/ProyectosView';
 import ProgresoView from './views/ProgresoView';
+import CreadorView from './views/CreadorView';
 import { DataProvider, useData } from './context/DataContext';
 import './index.css';
 
@@ -94,6 +95,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<HoyView />} />
           <Route path="/enfoque" element={<EnfoqueView />} />
           <Route path="/proyectos" element={<ProyectosView />} />
+          <Route path="/creador" element={<CreadorView />} />
           <Route path="/progreso" element={<ProgresoView />} />
         </Routes>
       </div>

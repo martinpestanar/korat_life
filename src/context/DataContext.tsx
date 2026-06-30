@@ -182,35 +182,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const today = getLocalDateString();
-      // 1. Generate blocks for today if they don't exist yet
+      // 1. Generate blocks for today if they don't exist yet (sequential)
       await supabase.rpc('generate_daily_blocks', { target_date: today });
 
-      const { data: todayBlocks } = await supabase
-        .from('daily_blocks')
-        .select('*, pillars:pillars(id, name, label), subtasks:subtasks(*)')
-        .eq('date', today)
-        .order('start_time');
+      // 2. Fetch today's blocks and active challenges in parallel
+      const [blocksRes, challengesRes] = await Promise.all([
+        supabase
+          .from('daily_blocks')
+          .select('*, pillars:pillars(id, name, label), subtasks:subtasks(*)')
+          .eq('date', today)
+          .order('start_time'),
+        supabase
+          .from('mini_challenges')
+          .select('*')
+          .eq('active', true)
+          .order('started_at')
+      ]);
 
-      if (todayBlocks) {
-        setBlocks(todayBlocks);
-        localStorage.setItem('korat_cache_blocks', JSON.stringify(todayBlocks));
+      if (blocksRes.data) {
+        setBlocks(blocksRes.data);
+        localStorage.setItem('korat_cache_blocks', JSON.stringify(blocksRes.data));
       }
 
-      // Yesterday's pending blocks are no longer fetched or rolled over as whole blocks.
-      // Uncompleted subtasks are rolled over automatically inside generate_daily_blocks RPC.
-
-      const { data: challengesData } = await supabase
-        .from('mini_challenges')
-        .select('*')
-        .eq('active', true)
-        .order('started_at');
-        
-      if (challengesData) {
-        setChallenges(challengesData);
-        localStorage.setItem('korat_cache_challenges', JSON.stringify(challengesData));
+      if (challengesRes.data) {
+        setChallenges(challengesRes.data);
+        localStorage.setItem('korat_cache_challenges', JSON.stringify(challengesRes.data));
       }
     } catch (err) {
-      console.error('Error fetching Hoy data (offline?):', err);
+      console.error('Error fetching Hoy data:', err);
     } finally {
       setLoadingHoy(false);
     }
@@ -223,26 +222,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     try {
-      const { data: projData } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: true });
+      // Fetch projects and milestones in parallel
+      const [projRes, msRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('project_milestones')
+          .select('*')
+          .order('created_at', { ascending: true })
+      ]);
 
-      const { data: msData } = await supabase
-        .from('project_milestones')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (projData) {
-        const combined = projData.map(p => ({
+      if (projRes.data) {
+        const combined = projRes.data.map(p => ({
           ...p,
-          milestones: msData ? msData.filter(m => m.project_id === p.id) : []
+          milestones: msRes.data ? msRes.data.filter(m => m.project_id === p.id) : []
         }));
         setProjects(combined);
         localStorage.setItem('korat_cache_projects', JSON.stringify(combined));
       }
     } catch (err) {
-      console.error('Error fetching Projects data (offline?):', err);
+      console.error('Error fetching Projects data:', err);
     } finally {
       setLoadingProjects(false);
     }
@@ -255,14 +256,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     try {
-      // 1. Fetch finances
-      const { data: finData } = await supabase.from('finances').select('*').eq('id', 1).single();
-      if (finData) {
+      // Fetch all financial tables and RPCs in parallel
+      const [
+        finRes,
+        incomesRes,
+        recRes,
+        expensesRes,
+        debtsRes,
+        closesRes,
+        daysRes
+      ] = await Promise.all([
+        supabase.from('finances').select('*').eq('id', 1).maybeSingle(),
+        supabase.from('income_pipeline').select('*').order('due_date'),
+        supabase.from('recurring_incomes').select('*').order('amount', { ascending: false }),
+        supabase.from('expenses').select('*').order('amount', { ascending: false }),
+        supabase.from('debts').select('*').order('due_date'),
+        supabase.from('monthly_closes').select('*').order('closed_at', { ascending: false }),
+        supabase.rpc('calculate_survival_days')
+      ]);
+
+      if (finRes.data) {
         const formattedFin = {
-          total_balance: parseFloat(finData.total_balance as any) || 0,
-          weekly_burn_rate: parseFloat(finData.weekly_burn_rate as any) || 0,
-          bank_balance: parseFloat(finData.bank_balance as any) || 0,
-          cash_balance: parseFloat(finData.cash_balance as any) || 0
+          total_balance: parseFloat(finRes.data.total_balance as any) || 0,
+          weekly_burn_rate: parseFloat(finRes.data.weekly_burn_rate as any) || 0,
+          bank_balance: parseFloat(finRes.data.bank_balance as any) || 0,
+          cash_balance: parseFloat(finRes.data.cash_balance as any) || 0
         };
         setFinances(formattedFin);
         localStorage.setItem('korat_cache_finances', JSON.stringify(formattedFin));
@@ -270,46 +288,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.from('finances').insert({ id: 1, total_balance: 1000, weekly_burn_rate: 150, bank_balance: 1000, cash_balance: 0 });
       }
 
-      // 2. Fetch one-time incomes
-      const { data: incomesData } = await supabase.from('income_pipeline').select('*').order('due_date');
-      if (incomesData) {
-        setIncomes(incomesData);
-        localStorage.setItem('korat_cache_incomes', JSON.stringify(incomesData));
+      if (incomesRes.data) {
+        setIncomes(incomesRes.data);
+        localStorage.setItem('korat_cache_incomes', JSON.stringify(incomesRes.data));
       }
 
-      // 3. Fetch recurring incomes
-      const { data: recData } = await supabase.from('recurring_incomes').select('*').order('amount', { ascending: false });
-      if (recData) {
-        setRecurringIncomes(recData);
-        localStorage.setItem('korat_cache_recurringIncomes', JSON.stringify(recData));
+      if (recRes.data) {
+        setRecurringIncomes(recRes.data);
+        localStorage.setItem('korat_cache_recurringIncomes', JSON.stringify(recRes.data));
       }
 
-      // 4. Fetch expenses
-      const { data: expensesData } = await supabase.from('expenses').select('*').order('amount', { ascending: false });
-      if (expensesData) {
-        setExpenses(expensesData);
-        localStorage.setItem('korat_cache_expenses', JSON.stringify(expensesData));
+      if (expensesRes.data) {
+        setExpenses(expensesRes.data);
+        localStorage.setItem('korat_cache_expenses', JSON.stringify(expensesRes.data));
       }
 
-      // 5. Fetch debts
-      const { data: debtsData } = await supabase.from('debts').select('*').order('due_date');
-      if (debtsData) {
-        setDebts(debtsData);
-        localStorage.setItem('korat_cache_debts', JSON.stringify(debtsData));
+      if (debtsRes.data) {
+        setDebts(debtsRes.data);
+        localStorage.setItem('korat_cache_debts', JSON.stringify(debtsRes.data));
+      }
+      
+      if (closesRes.data) {
+        setMonthlyCloses(closesRes.data);
+        localStorage.setItem('korat_cache_monthlyCloses', JSON.stringify(closesRes.data));
       }
 
-      // 6. Fetch monthly closes history
-      const { data: closesData } = await supabase.from('monthly_closes').select('*').order('closed_at', { ascending: false });
-      if (closesData) {
-        setMonthlyCloses(closesData);
-        localStorage.setItem('korat_cache_monthlyCloses', JSON.stringify(closesData));
-      }
-
-      // 7. Fetch calculated survival days via RPC
-      const { data: daysData } = await supabase.rpc('calculate_survival_days');
-      if (daysData !== null) {
-        setSurvivalDays(daysData);
-        localStorage.setItem('korat_cache_survivalDays', daysData.toString());
+      if (daysRes.data !== null && daysRes.data !== undefined) {
+        setSurvivalDays(daysRes.data);
+        localStorage.setItem('korat_cache_survivalDays', daysRes.data.toString());
       }
     } catch (err) {
       console.error('Error fetching Finances data (offline?):', err);

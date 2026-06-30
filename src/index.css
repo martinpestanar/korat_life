@@ -11,23 +11,90 @@
 }
 
 :root {
-  /* Solarized Cream/Editorial Palette */
-  --bg-app: #FBFaf7;
-  --bg-card: #F1ECE4;
-  --bg-card-hover: #EFE9DF;
-  --text-main: #191919;
-  --text-muted: #6B6661;
-  --accent-color: #CC6543;
-  --accent-light: #D97757;
-  --border-color: #E5DED4;
+  /* Luxury Rio & Santa Teresa Palette */
+  --bg-app: #F8F6F0; /* Elegant linen/pearl cream */
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FCFAF5;
+  --text-main: #0A2A1E; /* Imperial Palm Green */
+  --text-muted: #687C72;
+  --accent-color: #D46A43; /* Terracotta Copper */
+  --accent-light: #E6B033; /* Ipanema Gold */
+  --accent-green: #104D30; /* Emerald Leaf Green */
+  --accent-blue: #1D7D8C; /* Deep Atlantic Teal */
+  --border-color: rgba(10, 42, 30, 0.06);
   
   /* Typography */
-  --font-serif: Georgia, 'Times New Roman', Times, serif;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 
   font-family: var(--font-sans);
   color: var(--text-main);
   background-color: var(--bg-app);
+}
+
+/* Glassmorphism and Tropical Styling */
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px rgba(10, 42, 30, 0.03);
+  border-radius: 20px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(10, 42, 30, 0.06);
+  border-color: rgba(10, 42, 30, 0.12);
+}
+
+/* Tropical gradient button */
+.btn-tropical {
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-light));
+  color: white;
+  font-weight: 600;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(212, 106, 67, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-tropical:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(212, 106, 67, 0.35);
+}
+
+/* Animations */
+@keyframes leafSway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2deg); }
+}
+
+.leaf-sway {
+  animation: leafSway 6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes sunPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(230, 176, 51, 0.2)); }
+  50% { transform: scale(1.03); filter: drop-shadow(0 0 8px rgba(230, 176, 51, 0.4)); }
+}
+
+.sun-pulse {
+  animation: sunPulse 4s ease-in-out infinite;
+}
+
+/* Page transitions optimized for performance */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: pageFadeIn 0.14s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 * {

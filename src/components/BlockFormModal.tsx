@@ -22,6 +22,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
   const [notes, setNotes] = useState('');
   const [pillarId, setPillarId] = useState('');
   const [period, setPeriod] = useState<'morning' | 'afternoon' | 'night'>('morning');
+  const [requiresPc, setRequiresPc] = useState(false);
   const [pillars, setPillars] = useState<Pillar[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -40,6 +41,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
       setEndTime(block.end_time.slice(0, 5));
       setNotes(block.notes || '');
       setPillarId(block.pillar_id || '');
+      setRequiresPc(block.requires_pc || false);
       if (block.period === 'morning' || block.period === 'afternoon' || block.period === 'night') {
         setPeriod(block.period);
       } else {
@@ -51,6 +53,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
       setEndTime('09:00');
       setNotes('');
       setPillarId('');
+      setRequiresPc(false);
       setPeriod('morning');
     }
   }, [block]);
@@ -82,7 +85,8 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
             end_time: endTime + ':00',
             notes: notes || null,
             pillar_id: pillarId || null,
-            period: calculatedPeriod
+            period: calculatedPeriod,
+            requires_pc: requiresPc
           })
           .eq('id', block.id);
 
@@ -103,6 +107,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
             notes: notes || null,
             pillar_id: pillarId || null,
             period: calculatedPeriod,
+            requires_pc: requiresPc,
             is_completed: false
           });
 
@@ -228,6 +233,26 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
               </option>
             ))}
           </select>
+        </div>
+
+        {/* PC vs Offline toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
+          <input
+            type="checkbox"
+            id="requiresPcCheckbox"
+            checked={requiresPc}
+            onChange={e => setRequiresPc(e.target.checked)}
+            style={{
+              width: '18px',
+              height: '18px',
+              accentColor: 'var(--accent-color)',
+              cursor: 'pointer'
+            }}
+          />
+          <label htmlFor="requiresPcCheckbox" style={{ fontSize: '13px', color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'var(--font-sans)', display: 'flex', alignItems: 'center', gap: '6px', userSelect: 'none' }}>
+            <span>💻</span>
+            <span>Requiere usar Computadora (PC)</span>
+          </label>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>

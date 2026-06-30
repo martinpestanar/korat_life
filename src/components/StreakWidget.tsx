@@ -71,12 +71,12 @@ export default function StreakWidget() {
 
   // Determine dynamic habit level description
   const getStreakLevel = (days: number) => {
-    if (days >= 90) return 'Inmunidad Absoluta ✦';
-    if (days >= 60) return 'Gran Dominio Mental';
-    if (days >= 30) return 'Desintoxicación Completada';
-    if (days >= 15) return 'Hábito Consolidado';
-    if (days >= 7) return 'Racha Inicial Activa';
-    return 'Primeros Pasos de Enfoque';
+    if (days >= 90) return '☀ Inmunidad de Carnaval ✦';
+    if (days >= 60) return '🌊 Energía de Ipanema';
+    if (days >= 30) return '🏡 Amanecer en Santa Teresa';
+    if (days >= 15) return '🌿 Brisa de Copacabana';
+    if (days >= 7) return '🌱 Primer Rayo de Sol';
+    return '🍂 Semilla bajo el Sol';
   };
 
   if (loading) return <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '13px' }}>Cargando racha...</div>;
@@ -85,15 +85,13 @@ export default function StreakWidget() {
   const progressPercent = Math.min((currentVal / 90) * 100, 100);
 
   return (
-    <div style={{
-      backgroundColor: '#FAF5ED',
-      borderRadius: '16px',
-      padding: '32px 24px',
+    <div className="glass-card" style={{
+      padding: '28px 24px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      border: '1.5px solid rgba(204, 101, 67, 0.25)',
-      boxShadow: 'inset 0 1px 3px rgba(204,101,67,0.02)'
+      border: '1px solid var(--border-color)',
+      background: '#FFFFFF',
     }}>
       <span style={{
         fontSize: '9px',
@@ -101,70 +99,70 @@ export default function StreakWidget() {
         fontFamily: 'var(--font-sans)',
         fontWeight: 700,
         textTransform: 'uppercase',
-        letterSpacing: '2.5px',
-        backgroundColor: 'rgba(204, 101, 67, 0.08)',
-        padding: '2px 10px',
-        borderRadius: '10px',
-        marginBottom: '16px'
+        letterSpacing: '2px',
+        borderBottom: '1.5px solid var(--accent-light)',
+        paddingBottom: '2px',
+        marginBottom: '20px'
       }}>
-        Racha de Sobriedad
+        Luz de Río · Disciplina
       </span>
 
-      {/* Premium minimal ring progress indicator */}
-      <div style={{
+      {/* Sun/Dial progress indicator */}
+      <div className={`sun-pulse`} style={{
         position: 'relative',
-        width: '160px',
-        height: '160px',
+        width: '140px',
+        height: '140px',
         borderRadius: '50%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1.5px solid var(--border-color)',
+        background: '#FAF9F6',
+        border: '1px solid rgba(10, 42, 30, 0.06)',
+        boxShadow: 'inset 0 2px 8px rgba(10, 42, 30, 0.02)',
         marginBottom: '20px',
-        backgroundColor: 'var(--bg-app)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.01)'
+        transition: 'all 0.4s ease'
       }}>
-        {/* Glow indicator line */}
+        {/* Fine gold circular progress overlay */}
         <div style={{
           position: 'absolute',
-          inset: '-1.5px',
+          inset: '-1px',
           borderRadius: '50%',
-          border: '2.5px solid var(--accent-color)',
+          border: '2px solid var(--accent-light)',
           clipPath: `polygon(50% 50%, -50% -50%, ${150 - (progressPercent / 100) * 200}% -50%, 150% 150%, -50% 150%)`,
-          opacity: currentVal > 0 ? 0.8 : 0.1,
-          transition: 'all 0.5s ease'
+          opacity: currentVal > 0 ? 0.95 : 0.05,
+          transition: 'all 0.5s ease',
         }} />
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '56px',
+            fontSize: '48px',
             lineHeight: 1,
-            color: 'var(--accent-color)',
-            fontWeight: 'normal'
+            color: 'var(--text-main)',
+            fontWeight: 'normal',
           }}>
             {currentVal}
           </span>
           <span style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '11px',
+            fontSize: '9px',
             color: 'var(--text-muted)',
-            fontWeight: 600,
+            fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '1px',
-            marginTop: '4px'
+            marginTop: '2px'
           }}>
-            de 90 días
+            días de sol
           </span>
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
         <p style={{
           fontFamily: 'var(--font-serif)',
-          fontSize: '16px',
+          fontSize: '17px',
+          fontStyle: 'italic',
           color: 'var(--text-main)',
-          fontWeight: 'normal',
           margin: 0
         }}>
           {getStreakLevel(currentVal)}
@@ -180,7 +178,7 @@ export default function StreakWidget() {
           marginTop: '6px'
         }}>
           <FiAward size={12} color="var(--accent-color)" />
-          Máximo histórico: {streak?.max_streak || 0} días
+          Brillo máximo: {streak?.max_streak || 0} días
         </span>
       </div>
 
@@ -192,11 +190,13 @@ export default function StreakWidget() {
           padding: '14px',
           borderRadius: '12px',
           border: 'none',
-          backgroundColor: isCheckedInToday ? 'rgba(25,25,25,0.06)' : 'var(--text-main)',
-          color: isCheckedInToday ? 'var(--text-muted)' : 'var(--bg-app)',
+          background: isCheckedInToday 
+            ? 'rgba(46, 111, 64, 0.1)' 
+            : 'linear-gradient(135deg, var(--accent-color), var(--accent-light))',
+          color: isCheckedInToday ? 'var(--accent-green)' : 'white',
           fontFamily: 'var(--font-sans)',
           fontSize: '14px',
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: isCheckedInToday ? 'default' : 'pointer',
           transition: 'all 0.25s ease',
           marginBottom: '16px',
@@ -204,16 +204,16 @@ export default function StreakWidget() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: '8px',
-          boxShadow: isCheckedInToday ? 'none' : '0 4px 12px rgba(0,0,0,0.08)'
+          boxShadow: isCheckedInToday ? 'none' : '0 4px 15px rgba(231, 111, 81, 0.25)'
         }}
       >
         {isCheckedInToday ? (
           <>
             <FiCheckCircle size={16} />
-            <span>Día completado con éxito ✦</span>
+            <span>¡Tu sol brilla hoy en la terraza! ✦</span>
           </>
         ) : (
-          <span>Marcar Día Completado</span>
+          <span>Encender mi Sol Hoy</span>
         )}
       </button>
 

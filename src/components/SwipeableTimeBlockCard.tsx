@@ -31,6 +31,7 @@ export default function SwipeableTimeBlockCard({
 }: SwipeableTimeBlockCardProps) {
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const startXRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,24 +62,24 @@ export default function SwipeableTimeBlockCard({
 
   const cardStyle = {
     santuario: {
-      backgroundColor: '#FAF5ED',
-      borderColor: 'rgba(204, 101, 67, 0.25)',
+      backgroundColor: 'linear-gradient(135deg, rgba(254, 237, 222, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
+      borderColor: 'rgba(231, 111, 81, 0.25)',
       badgeColor: 'var(--accent-color)',
-      badgeBg: 'rgba(204, 101, 67, 0.08)',
-      label: '🌅 Santuario · Sin Computadora'
+      badgeBg: 'rgba(231, 111, 81, 0.1)',
+      label: '🌅 Terraza · Sin Pantallas'
     },
     hybrid: {
-      backgroundColor: '#EAE4D9',
-      borderColor: 'var(--border-color)',
-      badgeColor: 'var(--text-muted)',
-      badgeBg: 'rgba(25, 25, 25, 0.06)',
-      label: '🛋️ Modo Sofá / Puff'
+      backgroundColor: 'linear-gradient(135deg, rgba(224, 242, 241, 0.9) 0%, rgba(255, 255, 255, 0.8) 100%)',
+      borderColor: 'rgba(29, 138, 153, 0.25)',
+      badgeColor: 'var(--accent-blue)',
+      badgeBg: 'rgba(29, 138, 153, 0.1)',
+      label: '🛋️ Modo Hamaca / Relajado'
     },
     enfoque: {
-      backgroundColor: 'var(--bg-card)',
-      borderColor: 'var(--border-color)',
-      badgeColor: 'var(--text-main)',
-      badgeBg: 'rgba(25, 25, 25, 0.08)',
+      backgroundColor: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 247, 244, 0.85) 100%)',
+      borderColor: 'rgba(46, 111, 64, 0.15)',
+      badgeColor: 'var(--accent-green)',
+      badgeBg: 'rgba(46, 111, 64, 0.08)',
       label: '💻 Enfoque Profundo'
     }
   }[type];
@@ -113,6 +114,9 @@ export default function SwipeableTimeBlockCard({
       onToggleComplete(block.id, block.is_completed);
     } else if (translateX <= -SWIPE_THRESHOLD) {
       onOpenNotes(block);
+    } else if (Math.abs(translateX) < 4) {
+      // Si es un toque leve, expandimos/colapsamos el bloque
+      setIsExpanded(prev => !prev);
     }
 
     setTranslateX(0);
@@ -152,9 +156,9 @@ export default function SwipeableTimeBlockCard({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{
-          backgroundColor: cardStyle.backgroundColor,
-          borderRadius: '12px',
-          padding: '16px',
+          background: cardStyle.backgroundColor,
+          borderRadius: '16px',
+          padding: '18px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
@@ -232,6 +236,22 @@ export default function SwipeableTimeBlockCard({
               }}>
                 {cardStyle.label}
               </span>
+              <span style={{
+                fontSize: '9px',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: '8px',
+                backgroundColor: block.requires_pc ? 'rgba(46, 115, 232, 0.08)' : 'rgba(107, 102, 97, 0.08)',
+                color: block.requires_pc ? '#2D73E8' : 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}>
+                {block.requires_pc ? '💻 PC' : '📓 Offline'}
+              </span>
               {targetIncome && (
                 <span style={{
                   fontSize: '9px',
@@ -243,6 +263,20 @@ export default function SwipeableTimeBlockCard({
                   color: '#27AE60'
                 }}>
                   {targetIncome}
+                </span>
+              )}
+              {!isActive && !isExpanded && block.subtasks && block.subtasks.length > 0 && (
+                <span style={{
+                  fontSize: '9px',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 700,
+                  padding: '1px 6px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(10, 42, 30, 0.04)',
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.2px'
+                }}>
+                  📋 {block.subtasks.filter(s => s.is_completed).length}/{block.subtasks.length}
                 </span>
               )}
             </span>
@@ -294,115 +328,117 @@ export default function SwipeableTimeBlockCard({
           </div>
         </div>
 
-        {/* Subtasks checklist */}
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {block.subtasks && block.subtasks.map((s: Subtask) => (
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: s.is_completed ? 0.6 : 1 }}>
-              <div
-                onClick={(e) => { e.stopPropagation(); onToggleSubtask && onToggleSubtask(block.id, s.id, s.is_completed); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }}
-              >
-                {s.is_completed ? (
-                  <FiCheckSquare size={16} color="var(--accent-color)" />
-                ) : (
-                  <FiSquare size={16} color="var(--text-muted)" />
-                )}
-                <span style={{
-                  fontSize: '13px',
-                  fontFamily: 'var(--font-sans)',
-                  textDecoration: s.is_completed ? 'line-through' : 'none',
-                  color: 'var(--text-main)'
-                }}>
-                  {s.title}
-                </span>
+        {/* Subtasks and actions revealed conditionally */}
+        {(isActive || isExpanded) && (
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeIn 0.2s ease' }}>
+            {block.subtasks && block.subtasks.map((s: Subtask) => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: s.is_completed ? 0.6 : 1 }}>
+                <div
+                  onClick={(e) => { e.stopPropagation(); onToggleSubtask && onToggleSubtask(block.id, s.id, s.is_completed); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }}
+                >
+                  {s.is_completed ? (
+                    <FiCheckSquare size={16} color="var(--accent-color)" />
+                  ) : (
+                    <FiSquare size={16} color="var(--text-muted)" />
+                  )}
+                  <span style={{
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-sans)',
+                    textDecoration: s.is_completed ? 'line-through' : 'none',
+                    color: 'var(--text-main)'
+                  }}>
+                    {s.title}
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteSubtask && onDeleteSubtask(block.id, s.id); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', opacity: 0.5, cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                >
+                  <FiTrash2 size={12} />
+                </button>
               </div>
+            ))}
+
+            {/* Add subtask input */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newSubtaskTitle.trim()) return;
+                onAddSubtask && onAddSubtask(block.id, newSubtaskTitle);
+                setNewSubtaskTitle('');
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}
+            >
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                placeholder="Añadir subtarea..."
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  borderBottom: '1px solid var(--border-color)',
+                  background: 'none',
+                  padding: '4px 0',
+                  fontSize: '13px',
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  fontFamily: 'var(--font-sans)'
+                }}
+              />
               <button
-                onClick={(e) => { e.stopPropagation(); onDeleteSubtask && onDeleteSubtask(block.id, s.id); }}
+                type="submit"
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', fontSize: '14px', fontWeight: 600 }}
+              >
+                +
+              </button>
+            </form>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px', borderTop: '1px solid rgba(10, 42, 30, 0.04)', paddingTop: '8px' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditBlock && onEditBlock(block); }}
                 onPointerDown={(e) => e.stopPropagation()}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', opacity: 0.5, cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--text-muted)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', fontSize: '12px', padding: '4px 8px', borderRadius: '6px'
+                }}
+                title="Editar Bloque"
+              >
+                <FiEdit2 size={12} />
+                <span>Editar</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeleteBlock && onDeleteBlock(block.id); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--accent-color)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '4px', fontSize: '12px', padding: '4px 8px', borderRadius: '6px'
+                }}
+                title="Eliminar Bloque"
               >
                 <FiTrash2 size={12} />
+                <span>Eliminar</span>
+              </button>
+              <button
+                onClick={() => onOpenNotes(block)}
+                onPointerDown={(e) => e.stopPropagation()}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--text-muted)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: '6px', fontSize: '12px', padding: '4px 8px', borderRadius: '6px'
+                }}
+              >
+                <span>{block.notes ? 'Ver Notas' : 'Añadir Notas'}</span>
               </button>
             </div>
-          ))}
-
-          {/* Add subtask input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!newSubtaskTitle.trim()) return;
-              onAddSubtask && onAddSubtask(block.id, newSubtaskTitle);
-              setNewSubtaskTitle('');
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}
-          >
-            <input
-              type="text"
-              value={newSubtaskTitle}
-              onChange={(e) => setNewSubtaskTitle(e.target.value)}
-              placeholder="Añadir subtarea..."
-              style={{
-                flex: 1,
-                border: 'none',
-                borderBottom: '1px solid var(--border-color)',
-                background: 'none',
-                padding: '4px 0',
-                fontSize: '13px',
-                color: 'var(--text-main)',
-                outline: 'none',
-                fontFamily: 'var(--font-sans)'
-              }}
-            />
-            <button
-              type="submit"
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', fontSize: '14px', fontWeight: 600 }}
-            >
-              +
-            </button>
-          </form>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEditBlock && onEditBlock(block); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              background: 'none', border: 'none', color: 'var(--text-muted)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center',
-              gap: '4px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
-            }}
-            title="Editar Bloque"
-          >
-            <FiEdit2 size={13} />
-            <span>Editar</span>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDeleteBlock && onDeleteBlock(block.id); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              background: 'none', border: 'none', color: 'var(--accent-color)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center',
-              gap: '4px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
-            }}
-            title="Eliminar Bloque"
-          >
-            <FiTrash2 size={13} />
-            <span>Eliminar</span>
-          </button>
-          <button
-            onClick={() => onOpenNotes(block)}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              background: 'none', border: 'none', color: 'var(--text-muted)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center',
-              gap: '6px', fontSize: '13px', padding: '4px 8px', borderRadius: '6px'
-            }}
-          >
-            <span>{block.notes ? 'Ver Notas' : 'Añadir Notas'}</span>
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ export interface TimeBlock {
   period?: string;
   template_id?: string | null;
   date?: string;
+  requires_pc?: boolean;
   subtasks?: Subtask[];
   pillars?: {
     id: string;
@@ -35,17 +36,14 @@ interface TimeBlockCardProps {
 
 export default function TimeBlockCard({ block, onToggleComplete, onOpenNotes }: TimeBlockCardProps) {
   return (
-    <div style={{
-      backgroundColor: 'var(--bg-card)',
-      borderRadius: '12px',
-      padding: '16px',
+    <div className="glass-card" style={{
+      padding: '18px',
       marginBottom: '12px',
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
-      border: '1px solid var(--border-color)',
-      transition: 'background-color 0.2s',
-      opacity: block.is_completed ? 0.7 : 1
+      border: '1px solid rgba(46, 111, 64, 0.12)',
+      opacity: block.is_completed ? 0.75 : 1
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
