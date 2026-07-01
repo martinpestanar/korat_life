@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiLock, FiUnlock, FiHeart, FiX, FiRefreshCw, FiZap, FiEdit3, FiCheck } from 'react-icons/fi';
 
 interface AltarModalProps {
@@ -103,7 +104,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed',
       inset: 0,
@@ -113,7 +114,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 2000,
+      zIndex: 3000,
       padding: '20px',
       animation: 'fadeIn 0.25s ease'
     }}>
@@ -464,9 +465,9 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
 
             </div>
           )}
-
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

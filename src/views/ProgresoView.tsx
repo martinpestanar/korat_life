@@ -71,7 +71,7 @@ export default function ProgresoView() {
   const affirmations = visionItems.filter(item => item.item_type === 'affirmation');
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '100px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ padding: '20px', paddingBottom: '120px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
       {/* Header */}
       <div>

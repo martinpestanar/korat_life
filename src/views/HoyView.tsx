@@ -360,8 +360,23 @@ export default function HoyView() {
   const executeDeleteBlock = async () => {
     if (!blockIdToDelete) return;
     try {
+      // Find block to get template_id
+      const blockToDelete = blocks.find(b => b.id === blockIdToDelete);
+
+      // Delete from daily_blocks
       const { error } = await supabase.from('daily_blocks').delete().eq('id', blockIdToDelete);
       if (error) throw error;
+
+      // If it has a template_id, ALSO delete it from block_templates so it doesn't regenerate
+      if (blockToDelete && blockToDelete.template_id) {
+        const { error: templateErr } = await supabase
+          .from('block_templates')
+          .delete()
+          .eq('id', blockToDelete.template_id);
+        
+        if (templateErr) throw templateErr;
+      }
+
       fetchBlocksAndChallenges();
       setPillarsVersion(prev => prev + 1);
     } catch (e) {
@@ -422,7 +437,7 @@ export default function HoyView() {
     <div 
       data-pillars-version={pillarsVersion}
       style={{ 
-        paddingBottom: '80px', 
+        paddingBottom: '120px', 
         display: 'flex', 
         flexDirection: 'column',
         height: (immersionBlock || selectedBlock) ? '100vh' : 'auto',
@@ -431,6 +446,107 @@ export default function HoyView() {
       }}
     >
       <DailyGoalWidget completed={completedWeight} total={blocks.length} />
+
+      {/* CARD DEL ALTAR DE CONSCIENCIA */}
+      <div 
+        className="glass-card" 
+        onClick={() => setIsAltarOpen(true)}
+        style={{
+          margin: '0 16px 16px 16px',
+          padding: '24px 20px',
+          border: '1.5px solid rgba(230, 176, 51, 0.25)',
+          background: 'linear-gradient(135deg, #0A2A1E 0%, #05150F 100%)',
+          borderRadius: '24px',
+          boxShadow: '0 12px 30px rgba(10, 42, 30, 0.15)',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 16px 40px rgba(10, 42, 30, 0.25)';
+          e.currentTarget.style.borderColor = 'rgba(230, 176, 51, 0.45)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 12px 30px rgba(10, 42, 30, 0.15)';
+          e.currentTarget.style.borderColor = 'rgba(230, 176, 51, 0.25)';
+        }}
+      >
+        {/* Decorative corner lines for a sacred altar feeling */}
+        <div style={{ position: 'absolute', top: '12px', left: '12px', width: '10px', height: '10px', borderTop: '2px solid var(--accent-light)', borderLeft: '2px solid var(--accent-light)', opacity: 0.6 }} />
+        <div style={{ position: 'absolute', top: '12px', right: '12px', width: '10px', height: '10px', borderTop: '2px solid var(--accent-light)', borderRight: '2px solid var(--accent-light)', opacity: 0.6 }} />
+        <div style={{ position: 'absolute', bottom: '12px', left: '12px', width: '10px', height: '10px', borderBottom: '2px solid var(--accent-light)', borderLeft: '2px solid var(--accent-light)', opacity: 0.6 }} />
+        <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '10px', height: '10px', borderBottom: '2px solid var(--accent-light)', borderRight: '2px solid var(--accent-light)', opacity: 0.6 }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', textAlign: 'center' }}>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(230, 176, 51, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent-light)',
+            boxShadow: '0 0 15px rgba(230, 176, 51, 0.2)'
+          }}>
+            <FiHeart size={22} style={{ fill: 'var(--accent-light)' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{
+              fontSize: '10.5px',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 700,
+              letterSpacing: '2.5px',
+              textTransform: 'uppercase',
+              color: 'var(--accent-light)'
+            }}>
+              Altar de Consciencia
+            </span>
+            <span style={{
+              fontSize: '12px',
+              color: 'rgba(248, 246, 240, 0.7)',
+              fontFamily: 'var(--font-sans)'
+            }}>
+              Pacto de Vida y Compromiso
+            </span>
+          </div>
+
+          <p style={{
+            margin: '8px 12px 4px 12px',
+            fontSize: '13px',
+            fontFamily: 'var(--font-serif)',
+            fontStyle: 'italic',
+            lineHeight: 1.5,
+            color: '#F8F6F0',
+            opacity: 0.85,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden'
+          }}>
+            "Hoy, 1 de julio de 2026, me comprometo solemnemente a cuidar mi cuerpo, a hacer ejercicio diariamente, porque me amo y valoro mi templo..."
+          </p>
+
+          <span style={{
+            fontSize: '10.5px',
+            color: 'var(--accent-light)',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            borderBottom: '1px solid rgba(230, 176, 51, 0.3)',
+            paddingBottom: '2px',
+            marginTop: '6px',
+            display: 'inline-block'
+          }}>
+            Tocar para entrar y recordar
+          </span>
+        </div>
+      </div>
+
 
       {/* WIDGET MOTOR DE PROPÓSITO & GUARDIÁN 5H */}
       <div className="glass-card" style={{
@@ -519,245 +635,6 @@ export default function HoyView() {
               <FiVideo size={11} />
               <span>Grabar Video (+10 XP)</span>
             </button>
-          </div>
-        </div>
-
-        {/* Sección 2: Límite de 5 Horas de PC */}
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-              <FiClock size={12} />
-              <span>Límite de PC (Max 5h/día)</span>
-            </span>
-            <strong style={{ fontSize: '12px', fontFamily: 'var(--font-serif)', color: pcHoursUsed >= 5 ? 'var(--accent-color)' : 'var(--accent-green)' }}>
-              Uso: {pcHoursUsed}h / Planeado: {plannedPcHours}h
-            </strong>
-          </div>
-
-          {/* Selector de Horas */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button 
-              onClick={() => handleUpdatePcHours(pcHoursUsed - 0.5)}
-              style={{ flex: 1, padding: '6px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}
-            >
-              -30 min
-            </button>
-            <div style={{ flex: 3, height: '8px', backgroundColor: 'rgba(25,25,25,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${(pcHoursUsed / 5) * 100}%`,
-                height: '100%',
-                background: pcHoursUsed >= 5 
-                  ? 'var(--accent-color)' 
-                  : 'linear-gradient(90deg, var(--accent-green) 0%, #2ECC71 100%)',
-                borderRadius: '4px',
-                transition: 'width 0.3s ease'
-              }} />
-            </div>
-            <button 
-              onClick={() => handleUpdatePcHours(pcHoursUsed + 0.5)}
-              style={{ flex: 1, padding: '6px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'transparent', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}
-            >
-              +30 min
-            </button>
-          </div>
-
-          {/* Advertencia si lo planificado supera las 5 horas */}
-          {plannedPcHours > 5 && (
-            <div style={{
-              marginTop: '10px',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(204, 101, 67, 0.05)',
-              border: '1px solid rgba(204, 101, 67, 0.15)',
-              fontSize: '11px',
-              color: 'var(--accent-color)',
-              lineHeight: 1.4
-            }}>
-              ⚠️ Has planificado <strong>{plannedPcHours}h</strong> de PC hoy. Intenta reajustar tus bloques a un máximo de 5 horas para evitar la fatiga y proteger tu enfoque.
-            </div>
-          )}
-
-          {/* Bloqueo / Advertencia de 5 horas */}
-          {pcHoursUsed >= 5 && (
-            <div style={{
-              marginTop: '10px',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(204, 101, 67, 0.08)',
-              border: '1px solid rgba(204, 101, 67, 0.2)',
-              fontSize: '11px',
-              lineHeight: 1.4,
-              color: 'var(--accent-color)'
-            }}>
-              <strong>⚠️ ¡Límite alcanzado! Apaga la computadora hoy.</strong> Usa tu cuaderno 📓, tu celular 📱 o tu cámara Sony 📷 para continuar tus tareas y planear tu siguiente sesión.
-            </div>
-          )}
-        </div>
-
-        {/* Sección 3: Planificación Offline (Plan de Vuelo) */}
-        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-              Plan de Vuelo PC (Proyectos)
-            </span>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              Planifica antes de abrir la PC 📓
-            </span>
-          </div>
-
-          {/* Input para nueva tarea offline */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <input
-              type="text"
-              placeholder="Notas rápidas, Sony ZV-E10..."
-              value={newTaskInput}
-              onChange={e => setNewTaskInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddOfflineTask()}
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                fontSize: '12px',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                background: 'var(--bg-app)',
-                color: 'var(--text-main)',
-                outline: 'none'
-              }}
-            />
-            <button
-              onClick={handleAddOfflineTask}
-              style={{
-                backgroundColor: 'var(--text-main)',
-                color: 'var(--bg-app)',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              Añadir
-            </button>
-          </div>
-
-          {/* Lista de tareas de planificación offline */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            
-            {/* 1. Tareas de Agenda Sincronizadas */}
-            {pcBlocksSubtasks.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Subtareas Sincronizadas (Desde Agenda 💻)
-                </span>
-                {pcBlocksSubtasks.map((t) => (
-                  <div 
-                    key={t.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(45, 115, 232, 0.02)',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px dashed rgba(45, 115, 232, 0.15)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                      <button
-                        onClick={() => handleToggleSubtask(t.daily_block_id, t.id, t.completed)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          color: t.completed ? 'var(--accent-green)' : 'var(--text-muted)',
-                          display: 'flex'
-                        }}
-                      >
-                        <FiCheckCircle size={16} style={{ fill: t.completed ? 'rgba(46, 204, 113, 0.1)' : 'none' }} />
-                      </button>
-                      <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                        <span style={{
-                          fontSize: '12px',
-                          color: t.completed ? 'var(--text-muted)' : 'var(--text-main)',
-                          textDecoration: t.completed ? 'line-through' : 'none',
-                          fontFamily: 'var(--font-sans)',
-                          lineHeight: 1.3
-                        }}>
-                          {t.title}
-                        </span>
-                        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                          Bloque: {t.blockTitle}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* 2. Tareas Rápidas/Offline */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {pcBlocksSubtasks.length > 0 && (
-                <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Notas / Pendientes Rápidos 📓
-                </span>
-              )}
-              {offlineTasks.map((t, idx) => (
-                <div 
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    backgroundColor: '#FAF9F6',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(0,0,0,0.02)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                    <button
-                      onClick={() => handleToggleOfflineTask(idx)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        color: t.completed ? 'var(--accent-green)' : 'var(--text-muted)',
-                        display: 'flex'
-                      }}
-                    >
-                      <FiCheckCircle size={16} style={{ fill: t.completed ? 'rgba(46, 204, 113, 0.1)' : 'none' }} />
-                    </button>
-                    <span style={{
-                      fontSize: '12px',
-                      color: t.completed ? 'var(--text-muted)' : 'var(--text-main)',
-                      textDecoration: t.completed ? 'line-through' : 'none',
-                      fontFamily: 'var(--font-sans)',
-                      lineHeight: 1.3,
-                      textAlign: 'left'
-                    }}>
-                      {t.text}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveOfflineTask(idx)}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-color)', opacity: 0.5, cursor: 'pointer', padding: '4px' }}
-                  >
-                    <FiX size={13} />
-                  </button>
-                </div>
-              ))}
-
-              {offlineTasks.length === 0 && pcBlocksSubtasks.length === 0 && (
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic', margin: '4px 0' }}>
-                  Escribe en tu cuaderno y planifica qué harás en tus 5 horas.
-                </p>
-              )}
-            </div>
-
           </div>
         </div>
       </div>
@@ -913,34 +790,6 @@ export default function HoyView() {
             <h1 style={{ fontSize: '26px', color: 'var(--text-main)', fontFamily: 'var(--font-serif)', margin: 0 }}>
               {getDayLabel()}
             </h1>
-            <button
-              onClick={() => setIsAltarOpen(true)}
-              title="Abrir Altar de Consciencia"
-              style={{
-                background: 'rgba(212, 106, 67, 0.08)',
-                border: '1px solid rgba(212, 106, 67, 0.15)',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-color)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                outline: 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.08)';
-                e.currentTarget.style.background = 'rgba(212, 106, 67, 0.12)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.background = 'rgba(212, 106, 67, 0.08)';
-              }}
-            >
-              <FiHeart size={15} style={{ fill: 'rgba(212, 106, 67, 0.1)' }} />
-            </button>
           </div>
           <button
             onClick={handleAddBlock}

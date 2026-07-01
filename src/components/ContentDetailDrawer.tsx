@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX, FiCheck, FiTrash2, FiCalendar, FiLink, FiClock } from 'react-icons/fi';
 import { supabase } from '../lib/supabase';
 import IosAlertModal from './IosAlertModal';
@@ -125,10 +126,9 @@ export default function ContentDetailDrawer({ content, onClose, onSave }: Conten
       setLoading(false);
     }
   };
-
   if (!content) return null;
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed',
       inset: 0,
@@ -136,7 +136,7 @@ export default function ContentDetailDrawer({ content, onClose, onSave }: Conten
       backdropFilter: 'blur(4px)',
       display: 'flex',
       justifyContent: 'flex-end',
-      zIndex: 1100,
+      zIndex: 3000,
     }}>
       <div 
         style={{
@@ -452,6 +452,7 @@ export default function ContentDetailDrawer({ content, onClose, onSave }: Conten
         onConfirm={handleConfirmDelete}
         onCancel={() => setIsConfirmOpen(false)}
       />
-    </div>
+    </div>,
+    document.body
   );
 }

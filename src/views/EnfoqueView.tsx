@@ -11,7 +11,7 @@ export default function EnfoqueView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '100px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ padding: '20px', paddingBottom: '120px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <div>
           <h1 style={{ 

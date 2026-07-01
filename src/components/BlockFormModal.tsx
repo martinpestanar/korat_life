@@ -91,8 +91,48 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
           .eq('id', block.id);
 
         if (error) throw error;
+
+        // ALSO update the template if it exists
+        if (block.template_id) {
+          const { error: templateErr } = await supabase
+            .from('block_templates')
+            .update({
+              title,
+              start_time: startTime + ':00',
+              end_time: endTime + ':00',
+              notes: notes || null,
+              pillar_id: pillarId || null,
+              period: calculatedPeriod
+            })
+            .eq('id', block.template_id);
+
+          if (templateErr) throw templateErr;
+        }
       } else {
-        // INSERT daily block directly for today
+        // INSERT new block: first create its template so it is permanent
+        const todayDate = new Date();
+        const dayOfWeek = todayDate.getDay(); // 0 is Sunday, 6 is Saturday
+        let dayType = 'weekday';
+        if (dayOfWeek === 6) dayType = 'saturday';
+        else if (dayOfWeek === 0) dayType = 'sunday';
+
+        const { data: newTemplate, error: templateErr } = await supabase
+          .from('block_templates')
+          .insert({
+            title,
+            start_time: startTime + ':00',
+            end_time: endTime + ':00',
+            notes: notes || null,
+            pillar_id: pillarId || null,
+            period: calculatedPeriod,
+            day_type: dayType
+          })
+          .select()
+          .single();
+
+        if (templateErr) throw templateErr;
+
+        // Now insert the daily block linked to this new template
         const today = new Date().getFullYear() + '-' + 
                       String(new Date().getMonth() + 1).padStart(2, '0') + '-' + 
                       String(new Date().getDate()).padStart(2, '0');
@@ -108,7 +148,8 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
             pillar_id: pillarId || null,
             period: calculatedPeriod,
             requires_pc: requiresPc,
-            is_completed: false
+            is_completed: false,
+            template_id: newTemplate.id
           });
 
         if (error) throw error;

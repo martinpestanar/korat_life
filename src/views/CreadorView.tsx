@@ -104,7 +104,7 @@ export default function CreadorView() {
           display: 'flex',
           gap: '16px',
           overflowX: 'auto',
-          paddingBottom: '20px',
+          paddingBottom: '100px',
           scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch'
         }}
