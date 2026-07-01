@@ -94,7 +94,7 @@ export default function SurvivalWidget() {
     if (!incDesc.trim() || !incAmount) return;
     try {
       const { error } = await supabase.from('income_pipeline').insert({
-        description: incDesc,
+        description: incDesc.trim(),
         amount: parseFloat(incAmount),
         due_date: incDueDate || null,
         status: 'pending'
@@ -105,8 +105,9 @@ export default function SurvivalWidget() {
       setIncDueDate('');
       setShowIncomeForm(false);
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error al registrar el ingreso. Verifica los datos.');
     }
   };
 
@@ -138,15 +139,22 @@ export default function SurvivalWidget() {
       if (finErr) throw finErr;
 
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error al cobrar el ingreso.');
     }
   };
 
   const handleDeleteIncome = async (id: string) => {
     if (!confirm('¿Eliminar este ingreso?')) return;
-    await supabase.from('income_pipeline').delete().eq('id', id);
-    fetchData();
+    try {
+      const { error } = await supabase.from('income_pipeline').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al eliminar el ingreso.');
+    }
   };
 
   // Add Recurring Income
@@ -155,7 +163,7 @@ export default function SurvivalWidget() {
     if (!recDesc.trim() || !recAmount) return;
     try {
       const { error } = await supabase.from('recurring_incomes').insert({
-        description: recDesc,
+        description: recDesc.trim(),
         amount: parseFloat(recAmount),
         frequency: recFreq
       });
@@ -164,15 +172,22 @@ export default function SurvivalWidget() {
       setRecAmount('');
       setShowRecForm(false);
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error al registrar el proyecto.');
     }
   };
 
   const handleDeleteRecurringIncome = async (id: string) => {
     if (!confirm('¿Eliminar este ingreso recurrente?')) return;
-    await supabase.from('recurring_incomes').delete().eq('id', id);
-    fetchData();
+    try {
+      const { error } = await supabase.from('recurring_incomes').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al eliminar el proyecto.');
+    }
   };
 
   // Inject Variable Real Payout
@@ -190,17 +205,19 @@ export default function SurvivalWidget() {
         total_balance: newTotal
       }));
       
-      await supabase.from('finances').update({
+      const { error } = await supabase.from('finances').update({
         bank_balance: newBankBalance,
         total_balance: newTotal
       }).eq('id', 1);
+      if (error) throw error;
       
       setActualPayout('');
       setInjectingIncomeId(null);
       fetchData();
       alert(`¡S/. ${amount} cobrados e inyectados con éxito a tu BCP / Yape!`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || 'Error al inyectar cobro.');
     }
   };
 
@@ -210,7 +227,7 @@ export default function SurvivalWidget() {
     if (!expDesc.trim() || !expAmount) return;
     try {
       const { error } = await supabase.from('expenses').insert({
-        description: expDesc,
+        description: expDesc.trim(),
         amount: parseFloat(expAmount),
         frequency: expFreq
       });
@@ -227,8 +244,14 @@ export default function SurvivalWidget() {
 
   const handleDeleteExpense = async (id: string) => {
     if (!confirm('¿Eliminar este gasto?')) return;
-    await supabase.from('expenses').delete().eq('id', id);
-    fetchData();
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al eliminar el gasto.');
+    }
   };
 
   // Add Debt
@@ -237,7 +260,7 @@ export default function SurvivalWidget() {
     if (!debtDesc.trim() || !debtAmount || !debtDueDate) return;
     try {
       const { error } = await supabase.from('debts').insert({
-        description: debtDesc,
+        description: debtDesc.trim(),
         total_amount: parseFloat(debtAmount),
         due_date: debtDueDate
       });
@@ -247,15 +270,22 @@ export default function SurvivalWidget() {
       setDebtDueDate('');
       setShowDebtForm(false);
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error al registrar la deuda.');
     }
   };
 
   const handleDeleteDebt = async (id: string) => {
     if (!confirm('¿Eliminar esta deuda?')) return;
-    await supabase.from('debts').delete().eq('id', id);
-    fetchData();
+    try {
+      const { error } = await supabase.from('debts').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al eliminar la deuda.');
+    }
   };
 
   // Perform Monthly Close

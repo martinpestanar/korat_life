@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiLock, FiUnlock, FiHeart, FiX, FiRefreshCw, FiCompass, FiZap } from 'react-icons/fi';
+import { FiLock, FiUnlock, FiHeart, FiX, FiRefreshCw, FiZap, FiEdit3, FiCheck } from 'react-icons/fi';
 
 interface AltarModalProps {
   isOpen: boolean;
@@ -21,22 +21,48 @@ const CITAS_ALIENTO = [
   "No necesitas demostrarle nada a nadie afuera. Tu único compromiso es con tu paz interior."
 ];
 
+const DEFAULT_DECLARATION = `«Hoy, 1 de julio de 2026, me comprometo solemnemente a cuidar mi cuerpo y a hacer ejercicio diariamente, porque me amo y valoro mi templo.
+
+En segundo lugar, dedicaré mi tiempo con amor a mi proyecto: mi primer negocio de SaaS Plant-Based, entregándolo a esta industria que tanto deseo ver prosperar. Quiero ayudar de corazón a este sector, e incluso si al principio lo hago de forma gratuita, estaré profundamente agradecido si en el futuro esto me permite generar ingresos.
+
+Asimismo, elijo dejar atrás las compulsiones que dañan mi cuerpo y desgastan mi energía, como la pornografía, la masturbación y el jugar League of Legends en soledad. Decido vivir día a día con el objetivo real de sentirme bien, alegre, en paz y lleno de amor desde mi interior.
+
+No permitiré que los deseos externos ni las exigencias sociales nublen mi camino o me generen ansiedad y temor. Elijo que este cuerpo y mi consciencia trabajen en perfecta unión y amor para liderar esta corta vida, sin permitir que la mente tome el control. La mente es una hermosa herramienta y debe ser usada con amor para propósitos e ideales elevados. Mi verdadero propósito es fluir de manera libre e impredecible con este cuerpo, hacia donde nos lleve la aventura.»`;
+
 export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
   const [isLocked, setIsLocked] = useState(true);
   const [unlockProgress, setUnlockProgress] = useState(0);
   const [currentQuote, setCurrentQuote] = useState('');
   const [isPressing, setIsPressing] = useState(false);
 
+  // Estados para la edición
+  const [declaration, setDeclaration] = useState(() => {
+    const saved = localStorage.getItem('korat_pacto_declaration');
+    return saved || DEFAULT_DECLARATION;
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
+
+  // Verificar si la fecha actual es anterior al 1 de Julio de 2026 (límite: medianoche del 30 de junio)
   useEffect(() => {
-    // Escoger una cita inicial aleatoria
+    const checkEditWindow = () => {
+      const now = new Date();
+      // El límite es el 1 de Julio de 2026 a las 00:00:00
+      const limit = new Date(2026, 6, 1, 0, 0, 0); // Mes 6 es Julio en JS (0-indexed)
+      setCanEdit(now.getTime() < limit.getTime());
+    };
+    checkEditWindow();
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen) {
       setIsLocked(true);
       setUnlockProgress(0);
+      setIsEditing(false);
       getRandomQuote();
     }
   }, [isOpen]);
 
-  // Manejar el progreso de desbloqueo al mantener presionado
   useEffect(() => {
     let interval: any;
     if (isPressing && isLocked) {
@@ -48,11 +74,10 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
             clearInterval(interval);
             return 100;
           }
-          return prev + 5; // Aumenta 5% cada 50ms (1 segundo en total)
+          return prev + 5;
         });
       }, 50);
     } else {
-      // Si deja de presionar y no está desbloqueado, va reduciendo el progreso
       interval = setInterval(() => {
         setUnlockProgress((prev) => {
           if (prev <= 0) {
@@ -71,6 +96,11 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
     setCurrentQuote(CITAS_ALIENTO[randomIndex]);
   };
 
+  const handleSaveDeclaration = () => {
+    localStorage.setItem('korat_pacto_declaration', declaration);
+    setIsEditing(false);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -87,7 +117,6 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
       padding: '20px',
       animation: 'fadeIn 0.25s ease'
     }}>
-      {/* Estilos locales para animaciones */}
       <style>{`
         @keyframes pulseGlow {
           0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(212, 106, 67, 0.2)); }
@@ -120,7 +149,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
           position: 'relative'
         }}
       >
-        {/* Header con botón cerrar */}
+        {/* Header */}
         <div style={{
           padding: '16px 20px 10px 20px',
           display: 'flex',
@@ -161,7 +190,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
         <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
           
           {isLocked ? (
-            /* VISTA DE BLOQUEO CON EL CANDADO */
+            /* VISTA DE BLOQUEO */
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -180,7 +209,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                 </p>
               </div>
 
-              {/* Botón de Candado Interactivo */}
+              {/* Botón interactivo candado */}
               <div 
                 onMouseDown={() => setIsPressing(true)}
                 onMouseUp={() => setIsPressing(false)}
@@ -198,12 +227,9 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                   cursor: 'pointer',
                   backgroundColor: 'var(--bg-app)',
                   boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.02)',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none'
+                  userSelect: 'none'
                 }}
               >
-                {/* Círculo de progreso de desbloqueo SVG */}
                 <svg style={{
                   position: 'absolute',
                   inset: 0,
@@ -233,7 +259,6 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                   />
                 </svg>
 
-                {/* Ícono de Candado con animación */}
                 <div style={{
                   width: '74px',
                   height: '74px',
@@ -250,7 +275,6 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                 </div>
               </div>
 
-              {/* Barra indicadora discreta */}
               <div style={{
                 height: '4px',
                 width: '60px',
@@ -267,45 +291,105 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
               </div>
             </div>
           ) : (
-            /* ALTAR DESBLOQUEADO - DECLARACIÓN Y CITAS */
+            /* ALTAR DESBLOQUEADO */
             <div style={{
               display: 'flex',
               flexDirection: 'column',
               width: '100%',
-              gap: '20px'
+              gap: '24px'
             }}>
               
-              {/* Bloque de Declaración Principal */}
               <div style={{
-                backgroundColor: 'var(--bg-app)',
-                borderRadius: '16px',
-                padding: '16px',
-                border: '1px solid rgba(10, 42, 30, 0.04)',
-                maxHeight: '220px',
-                overflowY: 'auto'
+                background: 'linear-gradient(135deg, #0A2A1E 0%, #05150F 100%)',
+                borderRadius: '20px',
+                padding: '24px 20px',
+                border: '1.5px solid var(--accent-light)',
+                boxShadow: '0 12px 35px rgba(10, 42, 30, 0.35)',
+                maxHeight: '320px',
+                overflowY: 'auto',
+                position: 'relative'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                  <FiCompass size={13} color="var(--accent-green)" />
-                  <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
-                    Mi Declaración de Propósito
+                {/* Bordes premium */}
+                <div style={{ position: 'absolute', top: '12px', left: '12px', width: '8px', height: '8px', borderTop: '1.5px solid var(--accent-light)', borderLeft: '1.5px solid var(--accent-light)', opacity: 0.7 }} />
+                <div style={{ position: 'absolute', top: '12px', right: '12px', width: '8px', height: '8px', borderTop: '1.5px solid var(--accent-light)', borderRight: '1.5px solid var(--accent-light)', opacity: 0.7 }} />
+                <div style={{ position: 'absolute', bottom: '12px', left: '12px', width: '8px', height: '8px', borderBottom: '1.5px solid var(--accent-light)', borderLeft: '1.5px solid var(--accent-light)', opacity: 0.7 }} />
+                <div style={{ position: 'absolute', bottom: '12px', right: '12px', width: '8px', height: '8px', borderBottom: '1.5px solid var(--accent-light)', borderRight: '1.5px solid var(--accent-light)', opacity: 0.7 }} />
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{ width: '20px', height: '1px', backgroundColor: 'rgba(230, 176, 51, 0.4)' }} />
+                  <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--accent-light)', fontFamily: 'var(--font-sans)' }}>
+                    Pacto de Vida y Propósito
                   </span>
+                  {canEdit ? (
+                    isEditing ? (
+                      <button 
+                        onClick={handleSaveDeclaration}
+                        style={{ background: 'none', border: 'none', color: '#2ECC71', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700 }}
+                        title="Guardar pacto"
+                      >
+                        <FiCheck size={14} />
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => setIsEditing(true)}
+                        style={{ background: 'none', border: 'none', color: 'var(--accent-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700 }}
+                        title="Editar pacto (Disponible hasta medianoche)"
+                      >
+                        <FiEdit3 size={14} />
+                      </button>
+                    )
+                  ) : (
+                    <div style={{ width: '20px', height: '1px', backgroundColor: 'rgba(230, 176, 51, 0.4)' }} />
+                  )}
                 </div>
-                <p style={{
-                  fontSize: '12.5px',
-                  fontFamily: 'var(--font-serif)',
-                  fontStyle: 'italic',
-                  lineHeight: 1.5,
-                  color: 'var(--text-main)',
-                  textAlign: 'justify'
-                }}>
-                  «Hoy, 29 de junio de 2026, me comprometo solemnemente a cuidar mi cuerpo y a hacer ejercicio diariamente, porque me amo y valoro mi templo. En segundo lugar, dedicaré mi tiempo con amor a mi proyecto: mi primer negocio de SaaS Plant-Based, entregándolo a esta industria que tanto deseo ver prosperar. Quiero ayudar de corazón a este sector, e incluso si al principio lo hago de forma gratuita, estaré profundamente agradecido si en el futuro esto me permite generar ingresos. Asimismo, elijo dejar atrás las compulsiones que dañan mi cuerpo y desgastan mi energía, como la pornografía, la masturbación y el jugar League of Legends en soledad. Decido vivir día a día con el objetivo real de sentirme bien, alegre, en paz y lleno de amor desde mi interior. No permitiré que los deseos externos ni las exigencias sociales nublen mi camino o me generen ansiedad y temor. Elijo que este cuerpo y mi consciencia trabajen en perfecta unión y amor para liderar esta corta vida, sin permitir que la mente tome el control. La mente es una hermosa herramienta y debe ser usada con amor para propósitos e ideales elevados. Mi verdadero propósito es fluir de manera libre e impredecible con este cuerpo, hacia donde nos lleve la aventura.»
-                </p>
+
+                {isEditing ? (
+                  <textarea
+                    value={declaration}
+                    onChange={(e) => setDeclaration(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '220px',
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(230, 176, 51, 0.3)',
+                      borderRadius: '10px',
+                      color: '#F8F6F0',
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                      padding: '12px',
+                      outline: 'none',
+                      resize: 'none'
+                    }}
+                  />
+                ) : (
+                  <p style={{
+                    fontSize: '13.5px',
+                    fontFamily: 'var(--font-serif)',
+                    fontStyle: 'italic',
+                    lineHeight: 1.7,
+                    color: '#F8F6F0',
+                    textAlign: 'justify',
+                    letterSpacing: '0.2px',
+                    margin: 0,
+                    opacity: 0.95,
+                    whiteSpace: 'pre-line'
+                  }}>
+                    {declaration}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px', opacity: 0.8 }}>
+                  <div style={{ fontSize: '11px', fontFamily: 'var(--font-serif)', color: 'var(--accent-light)', fontStyle: 'italic', borderTop: '0.5px solid rgba(230, 176, 51, 0.2)', paddingTop: '6px', width: '140px', textAlign: 'center', letterSpacing: '1px' }}>
+                    Consciencia y Presencia
+                  </div>
+                </div>
               </div>
 
-              {/* Bloque de Cita de Aliento / Generador Aleatorio */}
+              {/* Frase de aliento */}
               <div 
                 className="quote-container"
-                key={currentQuote} // Forza animación al cambiar cita
+                key={currentQuote}
                 style={{
                   backgroundColor: 'rgba(212, 106, 67, 0.03)',
                   border: '1px solid rgba(212, 106, 67, 0.08)',
@@ -325,14 +409,7 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                   </span>
                 </div>
                 
-                <p style={{
-                  fontSize: '14px',
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: 600,
-                  lineHeight: 1.45,
-                  color: 'var(--text-main)',
-                  margin: 0
-                }}>
+                <p style={{ fontSize: '14px', fontFamily: 'var(--font-sans)', fontWeight: 600, lineHeight: 1.45, color: 'var(--text-main)', margin: 0 }}>
                   "{currentQuote}"
                 </p>
 
@@ -354,19 +431,18 @@ export default function AltarModal({ isOpen, onClose }: AltarModalProps) {
                     transition: 'all 0.2s ease',
                     marginTop: '4px'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.06)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.03)'}
                 >
                   <FiRefreshCw size={11} />
                   <span>Quiero más aliento</span>
                 </button>
               </div>
 
-              {/* Botón para volver a bloquear */}
+              {/* Volver a bloquear */}
               <button
                 onClick={() => {
                   setIsLocked(true);
                   setUnlockProgress(0);
+                  setIsEditing(false);
                 }}
                 style={{
                   background: 'none',
