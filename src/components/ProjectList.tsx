@@ -96,7 +96,7 @@ export default function ProjectList() {
             />
             <input
               type="number"
-              placeholder="Meta USD ($/mes)"
+              placeholder="Meta (S/ al mes)"
               value={targetIncome}
               onChange={e => setTargetIncome(e.target.value)}
               style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none', fontFamily: 'var(--font-sans)' }}

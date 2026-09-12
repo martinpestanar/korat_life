@@ -111,7 +111,7 @@ export default function InvestmentsWidget() {
             </span>
           </div>
           <div style={{ fontSize: '20px', fontWeight: 800, fontFamily: 'var(--font-sans)', color: 'var(--text-main)', marginTop: '2px' }}>
-            ${totalInvested.toLocaleString()} USD
+            S/ {totalInvested.toLocaleString()}
             <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '6px' }}>
               ({overallProgress}% de meta global)
             </span>
@@ -152,7 +152,7 @@ export default function InvestmentsWidget() {
         }}>
           <input
             type="text"
-            placeholder="Nombre de la meta (ej: Acciones / ETFs)"
+            placeholder="Nombre de la meta (ej: Acciones / ETFs / Ahorro)"
             value={name}
             onChange={e => setName(e.target.value)}
             style={{
@@ -169,7 +169,7 @@ export default function InvestmentsWidget() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               type="number"
-              placeholder="Meta $ USD"
+              placeholder="Meta (S/ Soles)"
               value={targetAmount}
               onChange={e => setTargetAmount(e.target.value)}
               style={{
@@ -184,7 +184,7 @@ export default function InvestmentsWidget() {
             />
             <input
               type="number"
-              placeholder="Ahorrado hoy $ USD"
+              placeholder="Ahorrado hoy (S/ Soles)"
               value={currentAmount}
               onChange={e => setCurrentAmount(e.target.value)}
               style={{
@@ -269,7 +269,7 @@ export default function InvestmentsWidget() {
                       color: 'var(--accent-green)'
                     }}
                   >
-                    +$50
+                    +S/ 50
                   </button>
 
                   <button
@@ -289,7 +289,7 @@ export default function InvestmentsWidget() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span style={{ fontSize: '15px', fontWeight: 800, fontFamily: 'var(--font-sans)', color: 'var(--accent-green)' }}>
-                  ${inv.currentAmount.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>/ ${inv.targetAmount.toLocaleString()} USD</span>
+                  S/ {inv.currentAmount.toLocaleString()} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>/ S/ {inv.targetAmount.toLocaleString()}</span>
                 </span>
 
                 <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'var(--font-sans)' }}>

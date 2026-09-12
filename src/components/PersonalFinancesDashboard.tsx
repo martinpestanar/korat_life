@@ -145,24 +145,24 @@ export default function PersonalFinancesDashboard() {
         {!isEditingBalance ? (
           <div>
             <div style={{ fontSize: '32px', fontWeight: 800, fontFamily: 'var(--font-sans)', letterSpacing: '-0.5px' }}>
-              ${totalBalance.toLocaleString()} <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', fontWeight: 400 }}>USD</span>
+              S/ {totalBalance.toLocaleString()} <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', fontWeight: 400 }}>PEN</span>
             </div>
 
             <div style={{ display: 'flex', gap: '16px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
                 <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Banco / Cuentas</span>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>${(finances.bank_balance || 0).toLocaleString()}</div>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>S/ {(finances.bank_balance || 0).toLocaleString()}</div>
               </div>
               <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '16px' }}>
                 <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Efectivo / Cash</span>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>${(finances.cash_balance || 0).toLocaleString()}</div>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>S/ {(finances.cash_balance || 0).toLocaleString()}</div>
               </div>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
             <div>
-              <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Banco ($ USD):</label>
+              <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Banco (S/ Soles):</label>
               <input
                 type="number"
                 value={bankBalanceInput}
@@ -171,7 +171,7 @@ export default function PersonalFinancesDashboard() {
               />
             </div>
             <div>
-              <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Efectivo ($ USD):</label>
+              <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>Efectivo (S/ Soles):</label>
               <input
                 type="number"
                 value={cashBalanceInput}
@@ -257,7 +257,7 @@ export default function PersonalFinancesDashboard() {
               style={{ flex: 2, padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }} required
             />
             <input
-              type="number" placeholder="$ USD" value={incAmount}
+              type="number" placeholder="S/ Soles" value={incAmount}
               onChange={e => setIncAmount(e.target.value)}
               style={{ flex: 1, padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }} required
             />
@@ -275,7 +275,7 @@ export default function PersonalFinancesDashboard() {
             }}>
               <div>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{item.description}</span>
-                <div style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 700 }}>+${item.amount} USD</div>
+                <div style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 700 }}>+S/ {item.amount}</div>
               </div>
 
               <button
@@ -332,7 +332,7 @@ export default function PersonalFinancesDashboard() {
               style={{ flex: 2, padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }} required
             />
             <input
-              type="number" placeholder="$ USD" value={expAmount}
+              type="number" placeholder="S/ Soles" value={expAmount}
               onChange={e => setExpAmount(e.target.value)}
               style={{ flex: 1, padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '12px' }} required
             />
@@ -350,7 +350,7 @@ export default function PersonalFinancesDashboard() {
             }}>
               <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{item.description}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-color)' }}>-${item.amount} USD</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-color)' }}>-S/ {item.amount}</span>
                 <button onClick={() => handleDeleteExpense(item.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   <FiTrash2 size={12} />
                 </button>

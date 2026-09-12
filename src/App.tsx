@@ -7,6 +7,8 @@ import EnfoqueView from './views/EnfoqueView';
 import ProyectosView from './views/ProyectosView';
 import ProgresoView from './views/ProgresoView';
 import CreadorView from './views/CreadorView';
+import RetoDiciembreView from './views/RetoDiciembreView';
+import GimnasiaMentalView from './views/GimnasiaMentalView';
 import { DataProvider, useData } from './context/DataContext';
 import './index.css';
 
@@ -93,6 +95,8 @@ function AnimatedRoutes() {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <Routes location={location}>
           <Route path="/" element={<HoyView />} />
+          <Route path="/reto" element={<RetoDiciembreView />} />
+          <Route path="/recreo" element={<GimnasiaMentalView />} />
           <Route path="/enfoque" element={<EnfoqueView />} />
           <Route path="/proyectos" element={<ProyectosView />} />
           <Route path="/creador" element={<CreadorView />} />

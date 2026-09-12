@@ -1,86 +1,107 @@
-import { FiCompass, FiTarget, FiBarChart2, FiBookOpen, FiVideo } from 'react-icons/fi';
 import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { to: '/', icon: FiCompass, label: 'Hoy' },
-  { to: '/enfoque', icon: FiTarget, label: 'Enfoque' },
-  { to: '/proyectos', icon: FiBookOpen, label: 'Proyectos' },
-  { to: '/creador', icon: FiVideo, label: 'Creador' },
-  { to: '/progreso', icon: FiBarChart2, label: 'Finanzas' },
+  { to: '/reto', icon: 'wb_twilight', label: 'Reto', isMaterial: true },
+  { to: '/recreo', icon: 'sports_esports', label: 'Recreo', isMaterial: true },
+  { to: '/', icon: 'timer', label: 'Hoy', isMaterial: true },
+  { to: '/creador', icon: 'movie', label: 'Creador', isMaterial: true },
+  { to: '/progreso', icon: 'finance_mode', label: 'Finanzas', isMaterial: true },
 ];
 
 export default function BottomNavigation() {
   return (
-    <nav style={{
+    <div style={{
       position: 'fixed',
-      bottom: '16px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: 'calc(100% - 32px)',
-      maxWidth: '398px',
-      backgroundColor: 'rgba(255, 255, 255, 0.85)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      border: '1px solid rgba(46, 111, 64, 0.15)',
-      display: 'flex',
-      justifyContent: 'space-around',
-      padding: '12px 6px',
-      borderRadius: '24px',
-      boxShadow: '0 8px 30px rgba(29, 59, 45, 0.08)',
-      zIndex: 1000,
-      transition: 'all 0.3s ease'
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 50,
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      pointerEvents: 'none'
     }}>
-      {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          style={({ isActive }) => ({
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textDecoration: 'none',
-            color: isActive ? 'var(--accent-green)' : 'var(--text-muted)',
-            gap: '4px',
-            flex: 1,
-            padding: '4px 0',
-            position: 'relative',
-            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-          })}
-        >
-          {({ isActive }) => (
-            <>
-              {isActive && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '-4px',
-                  width: '6px',
-                  height: '6px',
-                  backgroundColor: 'var(--accent-color)',
-                  borderRadius: '50%',
-                  boxShadow: '0 0 8px var(--accent-light)',
-                  animation: 'fadeIn 0.2s ease-out'
-                }} />
+      <div style={{
+        padding: '0 16px 12px',
+        maxWidth: '420px',
+        margin: '0 auto',
+        width: '100%'
+      }}>
+        <nav style={{
+          pointerEvents: 'auto',
+          backgroundColor: 'rgba(255, 255, 255, 0.88)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderRadius: '9999px',
+          boxShadow: '0 16px 36px -8px rgba(26, 31, 27, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.8)',
+          border: '1px solid rgba(46, 111, 64, 0.12)',
+          padding: '4px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          {NAV_ITEMS.map(({ to, label, icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              style={({ isActive }) => ({
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: '48px',
+                minHeight: '48px',
+                flex: 1,
+                textDecoration: 'none',
+                color: isActive ? '#11562a' : '#404940',
+                position: 'relative',
+                transition: 'all 0.2s ease'
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <div style={{
+                    width: '38px',
+                    height: '28px',
+                    borderRadius: '9999px',
+                    backgroundColor: isActive ? 'rgba(46, 111, 64, 0.12)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    fontSize: '18px'
+                  }}>
+                    {icon === 'wb_twilight' && '🌅'}
+                    {icon === 'sports_esports' && '🎮'}
+                    {icon === 'timer' && '⏱️'}
+                    {icon === 'movie' && '🎬'}
+                    {icon === 'finance_mode' && '📈'}
+                  </div>
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: isActive ? 700 : 500,
+                    letterSpacing: '0.02em',
+                    marginTop: '2px',
+                    lineHeight: 1
+                  }}>
+                    {label}
+                  </span>
+                  {isActive && (
+                    <span style={{
+                      position: 'absolute',
+                      bottom: '2px',
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      backgroundColor: '#11562a'
+                    }} />
+                  )}
+                </>
               )}
-              <div style={{
-                transform: isActive ? 'scale(1.1) translateY(-2px)' : 'scale(1)',
-                transition: 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-              }}>
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-              </div>
-              <span style={{
-                fontSize: '10px',
-                fontFamily: 'var(--font-sans)',
-                fontWeight: isActive ? 600 : 500,
-                letterSpacing: '0.3px',
-                transition: 'all 0.25s ease'
-              }}>
-                {label}
-              </span>
-            </>
-          )}
-        </NavLink>
-      ))}
-    </nav>
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </div>
   );
 }

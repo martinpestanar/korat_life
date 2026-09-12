@@ -182,10 +182,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       const today = getLocalDateString();
-      // 1. Generate blocks for today if they don't exist yet (sequential)
-      await supabase.rpc('generate_daily_blocks', { target_date: today });
 
-      // 2. Fetch today's blocks and active challenges in parallel
+      // Fetch today's blocks and active challenges in parallel
       const [blocksRes, challengesRes] = await Promise.all([
         supabase
           .from('daily_blocks')

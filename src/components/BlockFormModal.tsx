@@ -109,30 +109,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
           if (templateErr) throw templateErr;
         }
       } else {
-        // INSERT new block: first create its template so it is permanent
-        const todayDate = new Date();
-        const dayOfWeek = todayDate.getDay(); // 0 is Sunday, 6 is Saturday
-        let dayType = 'weekday';
-        if (dayOfWeek === 6) dayType = 'saturday';
-        else if (dayOfWeek === 0) dayType = 'sunday';
-
-        const { data: newTemplate, error: templateErr } = await supabase
-          .from('block_templates')
-          .insert({
-            title,
-            start_time: startTime + ':00',
-            end_time: endTime + ':00',
-            notes: notes || null,
-            pillar_id: pillarId || null,
-            period: calculatedPeriod,
-            day_type: dayType
-          })
-          .select()
-          .single();
-
-        if (templateErr) throw templateErr;
-
-        // Now insert the daily block linked to this new template
+        // INSERT new block directly into daily_blocks
         const today = new Date().getFullYear() + '-' + 
                       String(new Date().getMonth() + 1).padStart(2, '0') + '-' + 
                       String(new Date().getDate()).padStart(2, '0');
@@ -148,8 +125,7 @@ export default function BlockFormModal({ block, onClose, onSave }: BlockFormModa
             pillar_id: pillarId || null,
             period: calculatedPeriod,
             requires_pc: requiresPc,
-            is_completed: false,
-            template_id: newTemplate.id
+            is_completed: false
           });
 
         if (error) throw error;

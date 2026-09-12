@@ -230,7 +230,7 @@ export default function ProjectCard({ project, onUpdate }: { project: Project, o
               type="number"
               value={editTargetIncome}
               onChange={e => setEditTargetIncome(e.target.value)}
-              placeholder="Meta $/mes"
+              placeholder="Meta (S/ al mes)"
               style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--border-color)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-app)', color: 'var(--text-main)', outline: 'none', fontFamily: 'var(--font-sans)' }}
             />
           </div>
@@ -305,7 +305,7 @@ export default function ProjectCard({ project, onUpdate }: { project: Project, o
               {project.target_income_usd !== null && project.target_income_usd > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', background: 'rgba(25, 25, 25, 0.04)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
                   <FiTarget size={12} />
-                  <span>Meta: S/. {(project.target_income_usd * 3.75).toFixed(0)}/mes</span>
+                  <span>Meta: S/ {project.target_income_usd.toLocaleString()}/mes</span>
                 </div>
               )}
               {project.days_limit != null && project.days_limit > 0 && (
