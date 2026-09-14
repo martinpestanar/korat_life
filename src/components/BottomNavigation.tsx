@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { to: '/reto', icon: 'wb_twilight', label: 'Reto', isMaterial: true },
-  { to: '/recreo', icon: 'sports_esports', label: 'Recreo', isMaterial: true },
-  { to: '/', icon: 'timer', label: 'Hoy', isMaterial: true },
-  { to: '/creador', icon: 'movie', label: 'Creador', isMaterial: true },
-  { to: '/progreso', icon: 'finance_mode', label: 'Finanzas', isMaterial: true },
+  { to: '/korat-flow-engine/reto', icon: 'wb_twilight', label: 'Reto', isMaterial: true },
+  { to: '/korat-flow-engine/recreo', icon: 'sports_esports', label: 'Recreo', isMaterial: true },
+  { to: '/korat-flow-engine', icon: 'timer', label: 'Hoy', isMaterial: true },
+  { to: '/korat-flow-engine/creador', icon: 'movie', label: 'Creador', isMaterial: true },
+  { to: '/korat-flow-engine/progreso', icon: 'finance_mode', label: 'Finanzas', isMaterial: true },
 ];
 
 export default function BottomNavigation() {
@@ -42,7 +42,7 @@ export default function BottomNavigation() {
             <NavLink
               key={to}
               to={to}
-              end={to === '/'}
+              end={to === '/korat-flow-engine'}
               style={({ isActive }) => ({
                 display: 'flex',
                 flexDirection: 'column',
