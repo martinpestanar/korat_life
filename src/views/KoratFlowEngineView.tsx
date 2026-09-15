@@ -7,7 +7,7 @@ import { formatPenAndUsd } from '../lib/currencyUtils';
 
 export default function KoratFlowEngineView() {
   const navigate = useNavigate();
-  const { currentSlug, currentProject, allProjects, setCurrentSlug, founderStats, refreshSaaSData } = useSaaS();
+  const { currentSlug, currentProject, allProjects, setCurrentSlug, founderStats } = useSaaS();
 
   const [features, setFeatures] = useState<SoftwareFeature[]>([]);
   const [posts, setPosts] = useState<ContentPost[]>([]);
@@ -65,7 +65,6 @@ export default function KoratFlowEngineView() {
   const frozenFeatures = features.filter(f => f.is_frozen || f.status === 'frozen_100').length;
   const freezePct = totalFeatures > 0 ? Math.round((frozenFeatures / totalFeatures) * 100) : 0;
 
-  const totalPosts = posts.length;
   const winningPosts = posts.filter(p => p.is_winning_pattern || Number(p.score) > 8.0).length;
   const publishedPosts = posts.filter(p => p.pipeline_stage === 'published').length;
   const editingPosts = posts.filter(p => p.pipeline_stage === 'editing_capcut_pc').length;

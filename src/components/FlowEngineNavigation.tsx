@@ -58,7 +58,7 @@ export default function FlowEngineNavigation({
   onToggleCollapse
 }: FlowEngineNavigationProps) {
   const navigate = useNavigate();
-  const { founderStats, currentProject, currentSlug } = useSaaS();
+  const { founderStats, currentProject } = useSaaS();
   const level = founderStats?.founder_level || 1;
   const currentXP = founderStats?.founder_xp || 0;
   const xpThresholds: Record<number, number> = { 1: 500, 2: 1200, 3: 2500, 4: 5000, 5: 7500, 6: 12000, 7: 15000 };
@@ -218,7 +218,7 @@ export default function FlowEngineNavigation({
 
           {/* ── Nav Links ── */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {ENGINE_NAV_ITEMS.map(({ to, label, emoji, iconSvg }) => (
+            {ENGINE_NAV_ITEMS.map(({ to, label, iconSvg }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -336,7 +336,7 @@ export default function FlowEngineNavigation({
             gap: '2px',
             alignItems: 'center'
           }}>
-            {ENGINE_NAV_ITEMS.map(({ to, label, emoji, iconSvg }) => (
+            {ENGINE_NAV_ITEMS.map(({ to, label, iconSvg }) => (
               <NavLink
                 key={to}
                 to={to}
