@@ -247,6 +247,35 @@ export default function FlowEngineNavigation({
               </NavLink>
             ))}
 
+            {/* Productividad (Korat Life) */}
+            <NavLink
+              to="/korat-flow-engine/hoy"
+              title={collapsed ? 'Productividad (Hoy)' : undefined}
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '11px 0' : '10px 12px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                backgroundColor: isActive ? '#E8F5E9' : 'transparent',
+                color: isActive ? '#1b5e20' : 'var(--text-muted)',
+                fontWeight: isActive ? 700 : 500,
+                fontSize: '13.5px',
+                transition: 'var(--transition)',
+                gap: '10px',
+                borderLeft: isActive && !collapsed ? '3px solid #2e7d32' : '3px solid transparent'
+              })}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              {!collapsed && <span>Productividad (Hoy)</span>}
+            </NavLink>
+
             {/* Ajustes */}
             <NavLink
               to="/korat-flow-engine/ajustes"
@@ -332,7 +361,7 @@ export default function FlowEngineNavigation({
             border: '1px solid var(--border)',
             padding: '8px 8px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
+            gridTemplateColumns: 'repeat(6, 1fr)',
             gap: '2px',
             alignItems: 'center'
           }}>
@@ -374,6 +403,38 @@ export default function FlowEngineNavigation({
                 )}
               </NavLink>
             ))}
+
+            {/* Hoy (Productividad) en bottom bar */}
+            <NavLink
+              to="/korat-flow-engine/hoy"
+              style={({ isActive }) => ({
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px 4px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                backgroundColor: isActive ? '#E8F5E9' : 'transparent',
+                color: isActive ? '#1b5e20' : 'var(--text-hint)',
+                transition: 'var(--transition)',
+                gap: '3px'
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span style={{ fontSize: '9.5px', fontWeight: isActive ? 800 : 500, lineHeight: 1 }}>
+                    Hoy
+                  </span>
+                </>
+              )}
+            </NavLink>
 
             {/* Ajustes en bottom bar */}
             <NavLink

@@ -177,7 +177,111 @@ export default function KoratLabView() {
             </button>
           </div>
 
-          {/* TARJETA 2: Laboratorio / Sandbox */}
+          {/* TARJETA 2: Korat Life (Productividad diaria) */}
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '24px',
+            border: '1.5px solid rgba(46, 111, 64, 0.18)',
+            padding: '24px 20px',
+            boxShadow: '0 10px 30px rgba(10, 42, 30, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            transition: 'all 0.2s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '14px',
+                  backgroundColor: '#E8F5E9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '22px'
+                }}>
+                  🌱
+                </div>
+                <div>
+                  <h2 style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    margin: 0,
+                    color: '#0A2A1E'
+                  }}>
+                    Korat Life
+                  </h2>
+                </div>
+              </div>
+
+              <span style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                color: '#2E7D32',
+                backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                padding: '4px 9px',
+                borderRadius: '10px',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase'
+              }}>
+                PRODUCTIVIDAD DÍA A DÍA
+              </span>
+            </div>
+
+            <p style={{
+              fontSize: '13.5px',
+              color: '#687C72',
+              lineHeight: 1.45,
+              margin: 0
+            }}>
+              Gestión diaria: bloques de tiempo ("Hoy"), inmersión de enfoque, tracker de hábitos, finanzas personales y retos.
+            </p>
+
+            <button
+              onClick={() => navigate('/korat-flow-engine/hoy')}
+              style={{
+                width: '100%',
+                backgroundColor: '#1E5E3A',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '14px',
+                padding: '14px 20px',
+                fontSize: '14px',
+                fontWeight: 700,
+                fontFamily: 'var(--font-sans)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(30, 94, 58, 0.25)',
+                transition: 'all 0.2s ease',
+                marginTop: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#16482c';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#1E5E3A';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <span>📅</span>
+              <span>Abrir Productividad (Hoy)</span>
+            </button>
+          </div>
+
+          {/* TARJETA 3: Laboratorio / Sandbox */}
           <div style={{
             backgroundColor: '#FFFFFF',
             borderRadius: '24px',
